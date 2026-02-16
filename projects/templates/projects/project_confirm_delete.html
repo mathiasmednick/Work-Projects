@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Delete project{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Delete project</h1>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <p>Delete &ldquo;{{ project.project_number }} – {{ project.name }}&rdquo;? This cannot be undone.</p>
+  <form method="post" class="form-actions" style="margin-top: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary" style="background: var(--status-danger); border-color: var(--status-danger);">Delete</button>
+    <a href="{% url 'project_detail' project.pk %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

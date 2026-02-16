@@ -1,0 +1,23 @@
+{% comment %}Include with: page_obj, paginator, and optional query_extra (query string to append).{% endcomment %}
+<div class="pagination">
+  <span class="pagination-info">Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ paginator.count }} results</span>
+  <div class="pagination-controls">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if query_extra %}&{{ query_extra }}{% endif %}">Prev</a>
+    {% else %}
+    <span>Prev</span>
+    {% endif %}
+    {% for p in paginator.page_range %}
+      {% if p == page_obj.number %}
+      <span class="current">{{ p }}</span>
+      {% else %}
+      <a href="?page={{ p }}{% if query_extra %}&{{ query_extra }}{% endif %}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if query_extra %}&{{ query_extra }}{% endif %}">Next</a>
+    {% else %}
+    <span>Next</span>
+    {% endif %}
+  </div>
+</div>

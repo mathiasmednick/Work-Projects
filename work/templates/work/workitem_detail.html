@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Task: {{ work_item.title }}{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ work_item.title }}</h1>
+    <p class="page-subtitle">{{ work_item.project.project_number }} – {{ work_item.project.name }}</p>
+  </div>
+  <div class="page-header-actions">
+    {% if work_item.status != 'done' %}
+    <a href="{% url 'work_item_complete' work_item.pk %}" class="btn btn-primary">Complete</a>
+    {% endif %}
+    <a href="{% url 'work_item_edit' work_item.pk %}" class="btn btn-secondary">Edit</a>
+    <a href="{% url 'work_item_delete' work_item.pk %}" class="btn btn-secondary" style="color: var(--status-danger);">Delete</a>
+    <a href="{% url 'my_work' %}" class="btn btn-secondary">Back to My Work</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <table class="data-table">
+    <tr><th>Project</th><td><a href="{% url 'project_detail' work_item.project_id %}">{{ work_item.project.project_number }} – {{ work_item.project.name }}</a></td></tr>
+    <tr><th>Task type</th><td>{{ work_item.get_display_work_type }}</td></tr>
+    <tr><th>Priority</th><td>{{ work_item.get_priority_display }}</td></tr>
+    <tr><th>Due date</th><td>{{ work_item.due_date|default:"—" }}</td></tr>
+    <tr><th>Status</th><td>{{ work_item.get_status_display }}</td></tr>
+    <tr><th>Assigned to</th><td>{{ work_item.assigned_to.get_full_name|default:work_item.assigned_to.username|default:"—" }}</td></tr>
+    <tr><th>Requested by</th><td>{{ work_item.requested_by|default:"—" }}</td></tr>
+    {% if work_item.notes %}<tr><th>Notes</th><td>{{ work_item.notes }}</td></tr>{% endif %}
+    <tr><th>Created</th><td>{{ work_item.created_at }}</td></tr>
+    <tr><th>Updated</th><td>{{ work_item.updated_at }}{% if work_item.updated_by %} by {{ work_item.updated_by.get_full_name|default:work_item.updated_by.username }}{% endif %}</td></tr>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load static %}
+{% load core_extras %}
+{% block title %}Profile{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Profile</h1>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'profile_edit' %}" class="btn btn-primary">Edit Profile</a>
+    <a href="{% url 'logout' %}" class="btn btn-secondary">Logout</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <table class="data-table">
+    <tr><th>Username</th><td>{{ user.username }}</td></tr>
+    <tr><th>First name</th><td>{{ user.first_name|default:"—" }}</td></tr>
+    <tr><th>Last name</th><td>{{ user.last_name|default:"—" }}</td></tr>
+    <tr><th>Email</th><td>{{ user.email|default:"—" }}</td></tr>
+    <tr><th>Role</th><td>{% if user|user_role == 'manager' %}Manager{% else %}Scheduler{% endif %}</td></tr>
+  </table>
+</div>
+<p><a href="{% url 'profile_edit' %}">Edit Profile</a> · <a href="{% url 'logout' %}">Logout</a></p>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Search{% if query %}: {{ query }}{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Search</h1>
+    <form method="get" action="{% url 'search' %}" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+      <input type="search" name="q" class="form-control" placeholder="Projects or tasks..." value="{{ query }}" style="min-width: 220px;">
+      <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if query %}
+  {% if projects or tasks %}
+  <div class="card" style="margin-bottom: 1rem;">
+    <h2 class="card-title">Projects</h2>
+    {% if projects %}
+    <ul style="list-style: none; padding: 0;">
+      {% for p in projects %}
+      <li style="padding: 0.35rem 0;"><a href="{% url 'project_detail' p.pk %}">{{ p.project_number }} – {{ p.name }}</a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="color: var(--text-muted); margin: 0;">No matching projects.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2 class="card-title">Tasks</h2>
+    {% if tasks %}
+    <ul style="list-style: none; padding: 0;">
+      {% for t in tasks %}
+      <li style="padding: 0.35rem 0;"><a href="{% url 'work_item_detail' t.pk %}">{{ t.title }}</a> – {{ t.project.project_number }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="color: var(--text-muted); margin: 0;">No matching tasks.</p>
+    {% endif %}
+  </div>
+  {% else %}
+  <p style="color: var(--text-muted);">No results for "{{ query }}".</p>
+  {% endif %}
+{% else %}
+<p style="color: var(--text-muted);">Enter a project number, project name, or task title to search.</p>
+{% endif %}
+{% endblock %}

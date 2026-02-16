@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Delete time entry{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Delete time entry</h1>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <p>Delete entry: {{ entry.date }} – {{ entry.project.name }} – {{ entry.hours }}h?</p>
+  <form method="post" class="form-actions" style="margin-top: 1rem;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary" style="background: var(--status-danger); border-color: var(--status-danger);">Delete</button>
+    <a href="{% url 'time_entry_list' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

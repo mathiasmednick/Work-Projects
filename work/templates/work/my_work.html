@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}My Work{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">My Work</h1>
+    <p class="page-subtitle">Manage your active tasks and schedule priorities.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'work_item_create' %}" class="btn btn-primary">+ New Task</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="tabs">
+  <a href="?overdue=1" class="{% if filter_overdue %}active{% endif %}">Overdue <span class="badge badge-status-overdue">{{ overdue_count }}</span></a>
+  <a href="?due_soon=1" class="{% if filter_due_soon %}active{% endif %}">Due Soon <span class="badge badge-status-in-progress">{{ due_soon_count }}</span></a>
+  <a href="?status=in_progress" class="{% if filter_status == 'in_progress' %}active{% endif %}">In Progress <span class="badge badge-status-open">{{ in_progress_count }}</span></a>
+  <a href="?status=done" class="{% if filter_status == 'done' %}active{% endif %}">Completed <span class="badge badge-status-done">{{ done_count }}</span></a>
+</div>
+
+{% if my_priorities %}
+<div class="card" style="margin-bottom: 1rem;">
+  <h2 class="card-title">My Priorities</h2>
+  <p class="page-subtitle" style="margin: 0 0 0.5rem 0;">Due soon, overdue, or high priority (High)</p>
+  <ul style="list-style: none; padding: 0; margin: 0;">
+    {% for item in my_priorities %}
+    <li style="padding: 0.35rem 0; border-bottom: 1px solid var(--border-color);">
+      <a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a>
+      – {{ item.project.project_number }}
+      {% if item.due_date %}{% if item.due_date < today %}<span style="color: var(--status-danger);">Overdue {{ item.due_date }}</span>{% else %}Due {{ item.due_date }}{% endif %}{% endif %}
+      {% if item.priority == 'high' %}<span class="badge badge-status-overdue">{{ item.get_priority_display }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="table-toolbar">
+  <form method="get" action="" class="filter-form" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1;">
+    {% if filter_overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
+    {% if filter_due_soon %}<input type="hidden" name="due_soon" value="1">{% endif %}
+    {% if filter_status %}<input type="hidden" name="status" value="{{ filter_status }}">{% endif %}
+    <input type="search" name="q" class="form-control search-input" placeholder="Task or project..." value="{{ filter_q }}" style="min-width: 180px;">
+    <select name="project" class="form-control" style="width: auto;">
+      <option value="">All Projects</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if filter_project == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.project_number }}</option>{% endfor %}
+    </select>
+    {% if is_manager %}
+    <select name="project_manager" class="form-control" style="width: auto;">
+      <option value="">All PMs</option>
+      {% for u in project_managers %}<option value="{{ u.pk }}" {% if filter_project_manager == u.pk|stringformat:"d" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+    </select>
+    <select name="assigned_to" class="form-control" style="width: auto;">
+      <option value="">All Assignees</option>
+      {% for u in assignees %}<option value="{{ u.pk }}" {% if filter_assigned_to == u.pk|stringformat:"d" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="work_type" class="form-control" style="width: auto;">
+      <option value="">All Types</option>
+      {% for value, label in work_type_choices %}<option value="{{ value }}" {% if filter_work_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label style="display: flex; align-items: center; gap: 0.25rem;">Created from <input type="date" name="created_after" class="form-control" value="{{ filter_created_after }}" style="width: auto;"></label>
+    <label style="display: flex; align-items: center; gap: 0.25rem;">to <input type="date" name="created_before" class="form-control" value="{{ filter_created_before }}" style="width: auto;"></label>
+    <label style="display: flex; align-items: center; gap: 0.25rem;">Due from <input type="date" name="due_after" class="form-control" value="{{ filter_due_after }}" style="width: auto;"></label>
+    <label style="display: flex; align-items: center; gap: 0.25rem;">to <input type="date" name="due_before" class="form-control" value="{{ filter_due_before }}" style="width: auto;"></label>
+    <select name="sort" class="form-control" style="width: auto;">
+      <option value="due_date" {% if sort == "due_date" %}selected{% endif %}>Due date</option>
+      <option value="project_number" {% if sort == "project_number" %}selected{% endif %}>Project number</option>
+      <option value="project_name" {% if sort == "project_name" %}selected{% endif %}>Project name</option>
+      <option value="pm" {% if sort == "pm" %}selected{% endif %}>PM</option>
+      <option value="assigned_to" {% if sort == "assigned_to" %}selected{% endif %}>Assigned to</option>
+      <option value="created" {% if sort == "created" %}selected{% endif %}>Created</option>
+      <option value="status" {% if sort == "status" %}selected{% endif %}>Status</option>
+      <option value="work_type" {% if sort == "work_type" %}selected{% endif %}>Task type</option>
+    </select>
+    <select name="order" class="form-control" style="width: auto;">
+      <option value="desc" {% if order == "desc" %}selected{% endif %}>Desc</option>
+      <option value="asc" {% if order == "asc" %}selected{% endif %}>Asc</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Apply</button>
+  </form>
+</div>
+
+{% if work_items %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th><input type="checkbox" disabled></th>
+      <th>TASK TITLE</th>
+      <th>PROJECT</th>
+      <th>DUE DATE</th>
+      <th>PRIORITY</th>
+      <th>STATUS</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in work_items %}
+    <tr>
+      <td><input type="checkbox"></td>
+      <td><a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a></td>
+      <td><a href="{% url 'project_detail' item.project_id %}">{{ item.project.project_number }}</a> – {{ item.project.name }}</td>
+      <td>
+        {% if item.due_date %}
+          {% if item.due_date < today %}<span style="color: var(--status-danger);">▲ {{ item.due_date }}</span>
+          {% elif item.due_date == today %}<span style="color: var(--status-danger);">▲ Today</span>
+          {% else %}{{ item.due_date }}{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        <span class="priority-dot p{% if item.priority == 'high' %}1{% elif item.priority == 'medium' %}2{% else %}3{% endif %}"></span>
+        {{ item.get_priority_display }}
+      </td>
+      <td>
+        {% if item.status == 'done' %}<span class="badge badge-status-done">Completed</span>
+        {% elif item.status == 'in_progress' %}<span class="badge badge-status-in-progress">In Progress</span>
+        {% else %}<span class="badge badge-status-open">Not Started</span>{% endif %}
+      </td>
+      <td>
+        {% if item.status != 'done' %}
+        <a href="{% url 'work_item_complete' item.pk %}" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Complete</a>
+        {% endif %}
+        <a href="{% url 'work_item_edit' item.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Edit</a>
+        <a href="{% url 'work_item_delete' item.pk %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; color: var(--status-danger);">Delete</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "components/pagination.html" with page_obj=page_obj paginator=paginator query_extra=pagination_query %}
+{% else %}
+<p style="color: var(--text-muted);">No work items.</p>
+{% endif %}
+{% endblock %}

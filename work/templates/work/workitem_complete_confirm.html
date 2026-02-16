@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Complete & log time: {{ work_item.title }}{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Complete task & log time</h1>
+    <p class="page-subtitle">{{ work_item.title }} — {{ work_item.project.project_number }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'work_item_detail' work_item.pk %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 420px;">
+  <form method="post" action="">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div style="margin-top: 1rem;">
+      <button type="submit" class="btn btn-primary">Complete & log time</button>
+      <a href="{% url 'work_item_detail' work_item.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

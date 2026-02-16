@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Edit History{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Edit History</h1>
+    <p class="page-subtitle">Recent create, update, delete, and restore actions.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if audit_logs %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>TIMESTAMP</th>
+      <th>USER</th>
+      <th>ACTION</th>
+      <th>OBJECT</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in audit_logs %}
+    <tr>
+      <td>{{ log.timestamp|date:"M j, Y H:i" }}</td>
+      <td>{% if log.user %}{{ log.user.get_full_name|default:log.user.username }}{% else %}—{% endif %}</td>
+      <td>{{ log.get_action_display }}</td>
+      <td>
+        {% if log.model_name == 'workitem' %}
+        <a href="{% url 'work_item_detail' log.object_id %}">{{ log.object_repr }}</a>
+        {% else %}
+        {{ log.object_repr }} ({{ log.model_name }}#{{ log.object_id }})
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "components/pagination.html" with page_obj=page_obj paginator=paginator %}
+{% else %}
+<p style="color: var(--text-muted);">No activity yet.</p>
+{% endif %}
+{% endblock %}

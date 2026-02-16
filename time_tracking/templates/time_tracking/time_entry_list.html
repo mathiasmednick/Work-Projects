@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Weekly Time Entry{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Weekly Time Entry</h1>
+    <p class="page-subtitle">Log your hours for the current pay period.</p>
+  </div>
+  <div class="page-header-actions">
+    <div class="week-total-box">
+      <span class="label">WEEK TOTAL</span><br>
+      {{ week_total_hours }} hrs
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="week-nav" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+  <a class="btn btn-secondary" href="?week_start={{ prev_week|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}">Previous Week</a>
+  <span class="week-range">{{ week_start|date:"M j" }} – {{ week_end|date:"M j, Y" }}</span>
+  <a class="btn btn-secondary" href="?week_start={{ next_week|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}">Next Week</a>
+  <form method="get" style="display: inline-flex; gap: 0.35rem; align-items: center;">
+    <label for="id_week_pick">Week of</label>
+    <input id="id_week_pick" type="date" name="week_start" class="form-control" value="{{ week_start|date:'Y-m-d' }}">
+    {% if request.GET.user %}<input type="hidden" name="user" value="{{ request.GET.user }}">{% endif %}
+    <button type="submit" class="btn btn-secondary">Go</button>
+  </form>
+</div>
+
+<div class="table-toolbar">
+  <input type="search" class="form-control search-input" placeholder="Search entries..." style="max-width: 220px;">
+  <a href="{% url 'timesheet_summary' %}?week_start={{ week_start|date:'Y-m-d' }}" class="btn btn-secondary">Summary</a>
+  <a href="{% url 'time_entry_export_csv' %}?from={{ week_start|date:'Y-m-d' }}&to={{ week_end|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}" class="btn btn-secondary">Export CSV</a>
+</div>
+
+{% if entries %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>DATE</th>
+      <th>PROJECT</th>
+      <th>WORK CODE</th>
+      <th>DESCRIPTION</th>
+      <th>STATUS</th>
+      <th class="num">HOURS</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in entries %}
+    <tr{% if e.date == today %} style="background: #f0f9ff;"{% endif %}>
+      <td>{{ e.date|date:"D, M j" }}</td>
+      <td>{{ e.project.name }}</td>
+      <td>{% if e.work_code %}{{ e.get_work_code_display }}{% else %}<span class="badge badge-status-open">General</span>{% endif %}</td>
+      <td>{{ e.description|truncatewords:8|default:"—" }}</td>
+      <td><span class="badge badge-status-done">Logged</span></td>
+      <td class="num">{{ e.hours }}</td>
+      <td>
+        <a href="{% url 'time_entry_edit' e.pk %}" title="Edit">&#9998;</a>
+        <a href="{% url 'time_entry_delete' e.pk %}" title="Delete">&#128465;</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr style="font-weight: 600;">
+      <td colspan="5" class="num">Total Hours</td>
+      <td class="num" style="color: var(--primary);">{{ week_total_hours }}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p style="color: var(--text-muted);">No entries for this week.</p>
+{% endif %}
+
+<div class="pagination" style="margin-top: 1rem;">
+  <span class="pagination-info">Showing {{ entries|length }} entries</span>
+  <span class="pagination-info">Last synced: Just now</span>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if work_item %}Edit task{% else %}New task{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if work_item %}Edit task{% else %}New task{% endif %}</h1>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <table class="form-table">{{ form.as_table }}</table>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      {% if work_item %}<a href="{% url 'work_item_detail' work_item.pk %}" class="btn btn-secondary">Cancel</a>{% else %}<a href="{% url 'my_work' %}" class="btn btn-secondary">Cancel</a>{% endif %}
+    </div>
+  </form>
+  {% if form.errors %}
+  <ul class="messages" style="margin-top: 1rem;">
+    {% for field in form %}{% for err in field.errors %}<li class="error">{{ err }}</li>{% endfor %}{% endfor %}
+    {% for err in form.non_field_errors %}<li class="error">{{ err }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

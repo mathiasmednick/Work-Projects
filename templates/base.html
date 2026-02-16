@@ -1,0 +1,76 @@
+{% load static %}
+{% load core_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}GC Scheduler{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'core/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'core/css/components.css' %}">
+</head>
+<body>
+  {% if user.is_authenticated %}
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="sidebar-brand-icon">G</span>
+        <span>GC Scheduler</span>
+      </div>
+      <div style="padding: 0 1rem 0.5rem;">
+        <form method="get" action="{% url 'search' %}" style="display: flex;">
+          <input type="search" name="q" class="form-control" placeholder="Search..." style="flex: 1; min-width: 0;" aria-label="Search">
+          <button type="submit" class="btn btn-secondary" style="margin-left: 0.25rem;">&#128269;</button>
+        </form>
+      </div>
+      <nav class="sidebar-nav">
+        {% if user|user_role == 'manager' %}
+        <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+          <span class="nav-icon">&#9638;</span> Overview
+        </a>
+        {% endif %}
+        <a href="{% url 'my_work' %}" class="{% if request.resolver_match.url_name == 'my_work' %}active{% endif %}">
+          <span class="nav-icon">&#128197;</span> Schedule
+        </a>
+        {% if user|user_role == 'manager' %}
+        <a href="{% url 'work_item_deleted_list' %}" class="{% if request.resolver_match.url_name == 'work_item_deleted_list' %}active{% endif %}">
+          <span class="nav-icon">&#128465;</span> Recently Deleted
+        </a>
+        {% endif %}
+        {% if user|user_role == 'manager' %}
+        <a href="{% url 'project_list' %}" class="{% if request.resolver_match.url_name == 'project_list' or request.resolver_match.url_name == 'project_create' %}active{% endif %}">
+          <span class="nav-icon">&#128230;</span> Projects
+        </a>
+        <a href="{% url 'activity_list' %}" class="{% if request.resolver_match.url_name == 'activity_list' %}active{% endif %}">
+          <span class="nav-icon">&#128203;</span> Edit History
+        </a>
+        {% endif %}
+        <a href="{% url 'time_entry_list' %}" class="{% if request.resolver_match.url_name == 'time_entry_list' or request.resolver_match.url_name == 'time_entry_edit' %}active{% endif %}">
+          <span class="nav-icon">&#128336;</span> Timesheets
+        </a>
+      </nav>
+      <a href="{% url 'profile' %}" class="sidebar-user" style="text-decoration: none; color: inherit;">
+        <div class="sidebar-user-avatar">{{ user.username|slice:":2"|upper }}</div>
+        <div class="sidebar-user-info">
+          <span class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</span>
+          <span class="sidebar-user-role">{% if user|user_role == 'manager' %}Manager{% else %}Scheduler{% endif %}</span>
+        </div>
+      </a>
+    </aside>
+    <main class="main">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% block page_header %}{% endblock %}
+  {% endif %}
+  {% block content %}{% endblock %}
+  {% if user.is_authenticated %}
+    </main>
+  </div>
+  {% endif %}
+</body>
+</html>

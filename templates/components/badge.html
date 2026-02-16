@@ -1,0 +1,4 @@
+{% comment %}
+  Badge/pill: pass label and variant (e.g. badge-status-active, badge-status-overdue, badge-priority-critical)
+{% endcomment %}
+<span class="badge badge-{{ variant }}">{{ label }}{% if count %} <span class="badge-count">{{ count }}</span>{% endif %}</span>

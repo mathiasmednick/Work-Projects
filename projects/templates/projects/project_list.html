@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Projects{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Projects</h1>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'project_create' %}" class="btn btn-primary">+ New Project</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="table-toolbar">
+  <form method="get" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1;">
+    <input type="search" name="q" class="form-control search-input" placeholder="Search by name or ID..." value="{{ request.GET.q }}" style="min-width: 200px;">
+    <select name="status" class="form-control" style="width: auto;">
+      <option value="">All Statuses</option>
+      <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+      <option value="on_hold" {% if request.GET.status == 'on_hold' %}selected{% endif %}>On Hold</option>
+      <option value="complete" {% if request.GET.status == 'complete' %}selected{% endif %}>Completed</option>
+    </select>
+    <select name="location" class="form-control" style="width: auto;">
+      <option value="">All Locations</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">More Filters</button>
+  </form>
+</div>
+
+{% if projects %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>PROJECT NUMBER</th>
+      <th>PROJECT</th>
+      <th>LOCATION</th>
+      <th>MANAGER</th>
+      <th>STATUS</th>
+      <th class="num">TOTAL HOURS</th>
+      <th>ACTION</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in projects %}
+    <tr>
+      <td>{{ p.project_number }}</td>
+      <td><a href="{% url 'project_detail' p.pk %}">{{ p.name }}</a></td>
+      <td>{{ p.client }}</td>
+      <td>{% if p.project_manager %}{{ p.project_manager.get_full_name|default:p.project_manager.username }}{% else %}{{ p.pm }}{% endif %}</td>
+      <td>
+        {% if p.status == 'active' %}<span class="badge badge-status-active">Active</span>
+        {% elif p.status == 'on_hold' %}<span class="badge badge-status-on-hold">On Hold</span>
+        {% elif p.status == 'complete' %}<span class="badge badge-status-complete">Completed</span>
+        {% else %}<span class="badge badge-status-pending">Pending</span>{% endif %}
+      </td>
+      <td class="num">{{ p.total_hours|floatformat:1|default:"0" }}</td>
+      <td><a href="{% url 'project_detail' p.pk %}">Details &#8594;</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "components/pagination.html" with page_obj=page_obj paginator=paginator query_extra=pagination_query %}
+{% else %}
+<p style="color: var(--text-muted);">No projects yet.</p>
+{% endif %}
+
+<div class="stat-cards" style="margin-top: 2rem;">
+  <div class="stat-card">
+    <div class="stat-card-label">Pending Approvals</div>
+    <div class="stat-card-value">{{ pending_approvals }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Active Projects</div>
+    <div class="stat-card-value">{{ paginator.count|default:0 }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Total Hours (WTD)</div>
+    <div class="stat-card-value">{{ total_hours_wtd|floatformat:0 }}</div>
+  </div>
+</div>
+{% endblock %}

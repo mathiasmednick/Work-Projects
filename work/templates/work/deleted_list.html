@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Recently Deleted{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Recently Deleted</h1>
+    <p class="page-subtitle">Tasks deleted in the last {{ retention_days }} days. Restore before they are permanently removed.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'my_work' %}" class="btn btn-secondary">Back to My Work</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if deleted_items %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>TASK</th>
+      <th>PROJECT</th>
+      <th>DELETED AT</th>
+      <th>DELETED BY</th>
+      <th>DAYS REMAINING</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in deleted_items %}
+    <tr>
+      <td>{{ item.title }}</td>
+      <td>{{ item.project.project_number }} – {{ item.project.name }}</td>
+      <td>{{ item.deleted_at|date:"M j, Y H:i" }}</td>
+      <td>{{ item.deleted_by.get_full_name|default:item.deleted_by.username|default:"—" }}</td>
+      <td>{{ item.days_until_purge }}</td>
+      <td>
+        <form method="post" action="{% url 'work_item_restore' item.pk %}" style="display: inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Restore</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% include "components/pagination.html" with page_obj=page_obj paginator=paginator %}
+{% else %}
+<p style="color: var(--text-muted);">No recently deleted tasks.</p>
+{% endif %}
+{% endblock %}

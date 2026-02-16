@@ -1,0 +1,10 @@
+{% comment %}
+  Stat card: pass label, value, optional trend, trend_class (danger/success), optional subtext, optional icon_class
+{% endcomment %}
+<div class="stat-card">
+  {% if icon_class %}<span class="stat-card-icon {{ icon_class }}">&#9888;</span>{% endif %}
+  <div class="stat-card-label">{{ label }}</div>
+  <div class="stat-card-value">{{ value }}</div>
+  {% if trend %}<div class="stat-card-trend {{ trend_class|default:'' }}">{{ trend }}</div>{% endif %}
+  {% if subtext %}<div class="stat-card-trend">{{ subtext }}</div>{% endif %}
+</div>

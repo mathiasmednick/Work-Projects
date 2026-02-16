@@ -1,0 +1,104 @@
+# Deploying GC Scheduler on PythonAnywhere (free tier)
+
+This app is set up to run on PythonAnywhere's free tier using **SQLite** (no MySQL required). The database file lives in the project directory.
+
+## Assumptions
+
+- Free account at [pythonanywhere.com](https://www.pythonanywhere.com)
+- Code deployed at `/home/<username>/gc_scheduler/` (clone or upload)
+- SQLite database at `/home/<username>/gc_scheduler/db.sqlite3`
+- Python 3.10 (or the version offered on the Web tab)
+
+## Steps
+
+### 1. Upload code
+
+In a Bash console:
+
+```bash
+cd ~
+git clone <your-repo-url> gc_scheduler
+# or upload via Files tab / pip install git+...
+cd gc_scheduler
+```
+
+### 2. Virtualenv and dependencies
+
+```bash
+mkvirtualenv --python=/usr/bin/python3.10 gc_scheduler
+pip install -r requirements.txt
+```
+
+If `mkvirtualenv` is not found, see [Installing virtualenvwrapper](https://help.pythonanywhere.com/pages/InstallingVirtualenvWrapper) on the PythonAnywhere help site.
+
+### 3. Web app (Manual configuration)
+
+- Open the **Web** tab and create a new web app.
+- Choose **Manual configuration** (not the Django shortcut).
+- Select the same Python version as your virtualenv (e.g. 3.10).
+- In **Virtualenv**, enter: `gc_scheduler` (or the full path `~/.virtualenvs/gc_scheduler`).
+- Optionally set **Source code** and **Working directory** to `/home/<username>/gc_scheduler`.
+
+### 4. WSGI file
+
+Click the link to the WSGI file (e.g. `/var/www/<username>_pythonanywhere_com_wsgi.py`). Replace its contents with the Django section only, for example:
+
+```python
+import os
+import sys
+
+path = '/home/<username>/gc_scheduler'
+if path not in sys.path:
+    sys.path.insert(0, path)
+
+os.environ['DJANGO_SETTINGS_MODULE'] = 'gc_scheduler.settings'
+
+from django.core.wsgi import get_wsgi_application
+application = get_wsgi_application()
+```
+
+Replace `<username>` with your PythonAnywhere username. Save the file.
+
+### 5. Static files
+
+- In your project, `STATIC_ROOT` is set to `os.path.join(BASE_DIR, 'static')` in `gc_scheduler/settings.py` (i.e. `/home/<username>/gc_scheduler/static` after `collectstatic`).
+- In a Bash console:
+
+  ```bash
+  cd /home/<username>/gc_scheduler
+  python manage.py collectstatic --noinput
+  ```
+
+- In the **Web** tab, under **Static files**, add a mapping:
+  - **URL**: `/static/`
+  - **Directory**: `/home/<username>/gc_scheduler/static`
+
+### 6. Database and superuser
+
+In a Bash console:
+
+```bash
+cd /home/<username>/gc_scheduler
+python manage.py migrate
+python manage.py createsuperuser   # optional, for admin
+python manage.py seed_scheduler    # optional, for sample dev data
+```
+
+SQLite is stored in the project folder; no separate database server is needed. The web process has write access to the project directory in your home folder.
+
+### 7. Reload and test
+
+- Click **Reload** for your web app on the Web tab.
+- Visit `https://<username>.pythonanywhere.com/` and log in (e.g. `manager` / `devpass` if you ran `seed_scheduler`).
+- Admin: `https://<username>.pythonanywhere.com/admin/`
+
+## Security notes for production
+
+- Set `DEBUG = False` and a strong `SECRET_KEY` (e.g. from environment variables).
+- Add your PythonAnywhere host to `ALLOWED_HOSTS`, e.g. `['<username>.pythonanywhere.com']`.
+- Use HTTPS (PythonAnywhere provides it for your domain).
+
+## Free tier limits
+
+- One web app, limited CPU and disk. See [Free accounts](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/) for current limits.
+- SQLite is suitable for low concurrency; for heavier use consider upgrading and switching to MySQL/PostgreSQL if needed.
