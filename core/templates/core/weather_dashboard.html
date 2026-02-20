@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Weather Risk Monitor{% endblock %}
+
+{% block page_header %}
+<style>
+.weather-kpi { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.weather-kpi-card { flex: 1; min-width: 120px; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.weather-kpi-card.high { border-left: 4px solid #dc3545; }
+.weather-kpi-card.moderate { border-left: 4px solid #fd7e14; }
+.weather-kpi-card.low { border-left: 4px solid #ffc107; }
+.weather-kpi-card.clear { border-left: 4px solid #28a745; }
+.weather-kpi-card.unknown { border-left: 4px solid #6c757d; }
+.weather-kpi-value { font-size: 1.75rem; font-weight: 700; }
+.weather-kpi-card.high .weather-kpi-value { color: #dc3545; }
+.weather-kpi-card.moderate .weather-kpi-value { color: #fd7e14; }
+.weather-kpi-card.low .weather-kpi-value { color: #b8860b; }
+.weather-kpi-card.clear .weather-kpi-value { color: #28a745; }
+.weather-kpi-label { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
+.weather-layout { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 900px) { .weather-layout { grid-template-columns: minmax(280px, 1fr) 1fr; } }
+.weather-project-list { list-style: none; padding: 0; margin: 0; }
+.weather-project-item { display: flex; align-items: center; padding: 0.6rem 0.75rem; border-radius: 6px; margin-bottom: 0.25rem; background: #fff; border: 1px solid var(--border-color); border-left: 4px solid #6c757d; }
+.weather-project-item.risk-high { border-left-color: #dc3545; }
+.weather-project-item.risk-moderate { border-left-color: #fd7e14; }
+.weather-project-item.risk-low { border-left-color: #ffc107; }
+.weather-project-item.risk-clear { border-left-color: #28a745; }
+.weather-project-item.risk-unknown { border-left-color: #6c757d; }
+.weather-risk-pill { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-weight: 600; margin-left: auto; }
+.weather-risk-pill.high { background: #dc3545; color: #fff; }
+.weather-risk-pill.moderate { background: #fd7e14; color: #fff; }
+.weather-risk-pill.low { background: #ffc107; color: #1a1a1a; }
+.weather-risk-pill.clear { background: #28a745; color: #fff; }
+.weather-risk-pill.unknown { background: #6c757d; color: #fff; }
+.weather-preview { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; }
+.weather-detail-panel { background: #f8f9fa; border-radius: 8px; padding: 1rem; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.weather-day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
+.weather-day-card { background: #fff; border-radius: 6px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); font-size: 0.875rem; }
+.weather-day-card .date { font-weight: 600; }
+.weather-day-card .precip { color: #0d6efd; }
+</style>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Weather Risk Monitor</h1>
+    <p class="page-subtitle">Global tracking for active projects. Click a project for 7-day forecast.</p>
+  </div>
+  <div class="page-header-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="{% url 'weather_table' %}" class="btn btn-secondary">Table view</a>
+    <form method="post" action="{% url 'weather_refresh' %}" style="display: inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Refresh all</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="weather-kpi">
+  <div class="weather-kpi-card high">
+    <div class="weather-kpi-value">{{ count_high }}</div>
+    <div class="weather-kpi-label">High Risk Projects</div>
+    <div class="weather-kpi-label" style="font-size: 0.75rem;">Max precip prob &gt;= 50%</div>
+  </div>
+  <div class="weather-kpi-card moderate">
+    <div class="weather-kpi-value">{{ count_moderate }}</div>
+    <div class="weather-kpi-label">Moderate Risk Projects</div>
+    <div class="weather-kpi-label" style="font-size: 0.75rem;">Max precip prob 30–49%</div>
+  </div>
+  <div class="weather-kpi-card low">
+    <div class="weather-kpi-value">{{ count_low }}</div>
+    <div class="weather-kpi-label">Low Risk Projects</div>
+    <div class="weather-kpi-label" style="font-size: 0.75rem;">Max precip prob 10–29%</div>
+  </div>
+  <div class="weather-kpi-card clear">
+    <div class="weather-kpi-value">{{ count_clear }}</div>
+    <div class="weather-kpi-label">Clear Projects</div>
+    <div class="weather-kpi-label" style="font-size: 0.75rem;">Max precip prob &lt; 10%</div>
+  </div>
+</div>
+
+<div class="weather-layout">
+  <div class="card">
+    <h2 class="card-title">Project &amp; location</h2>
+    <input type="text" id="weather-search" class="form-control" placeholder="Search projects..." style="margin-bottom: 0.75rem;" aria-label="Search projects">
+    <ul class="weather-project-list" id="weather-project-list">
+      {% for row in project_rows %}
+      <li class="weather-project-item risk-{{ row.risk_level|lower }}" data-search="{{ row.project.project_number }} {{ row.project.name }} {{ row.project.city }} {{ row.project.state }}">
+        <a href="?project={{ row.project.id }}" style="flex: 1; text-decoration: none; color: inherit;">
+          <strong>{{ row.project.name }}</strong><br>
+          <span style="font-size: 0.875rem; color: var(--text-muted);">{{ row.project.project_number }}{% if row.project.city or row.project.state %} — {{ row.project.city|default:"" }}{% if row.project.city and row.project.state %}, {% endif %}{{ row.project.state|default:"" }}{% endif %}</span>
+          {% if row.preview_days %}
+          <span class="weather-preview">7-day: {% for d in row.preview_days %}{% if d is not None %}{{ d }}%{% else %}—{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+          {% elif row.today_precip_prob is not None %}
+          <span class="weather-preview">Today {{ row.today_precip_prob }}% precip</span>
+          {% endif %}
+        </a>
+        <span class="weather-risk-pill {{ row.risk_level|lower }}">{% if row.risk_level == 'UNKNOWN' %}{% if row.has_address %}No forecast{% else %}Add city/state{% endif %}{% else %}{{ row.risk_level }}{% if row.max_precip_prob is not None %} ({{ row.max_precip_prob }}%){% endif %}{% endif %}</span>
+      </li>
+      {% empty %}
+      <li style="color: var(--text-muted);">No active projects.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card weather-detail-panel">
+    {% if selected_project %}
+    <h2 class="card-title">{{ selected_project.name }}</h2>
+    <p class="page-subtitle" style="margin: 0 0 0.5rem 0;">{{ selected_project.project_number }}{% if selected_project.city or selected_project.state %} — {{ selected_project.city|default:"" }}{% if selected_project.city and selected_project.state %}, {% endif %}{{ selected_project.state|default:"" }}{% endif %}</p>
+    {% if selected_cache and selected_cache.fetched_at %}<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.5rem 0;">Cached {{ selected_cache.fetched_at|date:"M j, g:i A" }}</p>{% endif %}
+    {% if forecast_days %}
+    <div class="weather-day-cards">
+      {% for day in forecast_days %}
+      <div class="weather-day-card">
+        <div class="date">{{ day.date }}</div>
+        <div>{% if day.temp_max is not None %}{{ day.temp_max }}°{% if day.temp_min is not None %} / L: {{ day.temp_min }}°{% endif %}{% else %}—{% endif %}</div>
+        <div class="precip">{% if day.precip_prob is not None %}{{ day.precip_prob }}% precip{% else %}{% if day.precip is not None %}{{ day.precip }} mm{% else %}—{% endif %}{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted); font-size: 0.875rem;">No forecast data. Use Refresh all.</p>
+    {% endif %}
+    {% else %}
+    <p class="page-subtitle" style="margin: 0;">Select a project from the list to view 7-day forecast details.</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function() {
+  var input = document.getElementById('weather-search');
+  var list = document.getElementById('weather-project-list');
+  if (!input || !list) return;
+  var items = list.querySelectorAll('.weather-project-item[data-search]');
+  input.addEventListener('input', function() {
+    var q = (this.value || '').toLowerCase().trim();
+    items.forEach(function(li) {
+      li.style.display = !q || (li.getAttribute('data-search') || '').toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

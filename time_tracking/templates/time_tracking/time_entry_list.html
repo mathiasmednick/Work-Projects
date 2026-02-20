@@ -33,7 +33,10 @@
 <div class="table-toolbar">
   <input type="search" class="form-control search-input" placeholder="Search entries..." style="max-width: 220px;">
   <a href="{% url 'timesheet_summary' %}?week_start={{ week_start|date:'Y-m-d' }}" class="btn btn-secondary">Summary</a>
-  <a href="{% url 'time_entry_export_csv' %}?from={{ week_start|date:'Y-m-d' }}&to={{ week_end|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}" class="btn btn-secondary">Export CSV</a>
+  <a href="{% url 'time_entry_export_csv' %}?from={{ week_start|date:'Y-m-d' }}&to={{ week_end|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}" class="btn-csv-export">
+      <span class="btn-csv-circle" aria-hidden="true">&#8595;</span>
+      <span class="btn-csv-title">Export CSV</span>
+    </a>
 </div>
 
 {% if entries %}

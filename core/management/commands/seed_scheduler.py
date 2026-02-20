@@ -69,6 +69,13 @@ class Command(BaseCommand):
         TimeEntry.objects.filter(user__in=[manager, s1, s2]).delete()
 
         # Projects
+        addr_defaults = {
+            'address_line1': '123 Main St',
+            'city': 'Anytown',
+            'state': 'CA',
+            'zip_code': '90001',
+            'country': 'US',
+        }
         p1, _ = Project.objects.get_or_create(
             project_number='PRJ-001',
             defaults={
@@ -78,11 +85,16 @@ class Command(BaseCommand):
                 'project_manager': manager,
                 'status': Project.STATUS_ACTIVE,
                 'notes': 'Main site.',
+                **addr_defaults,
             },
         )
         if not p1.project_manager_id:
             p1.project_manager = manager
             p1.save(update_fields=['project_manager'])
+        if not (p1.address_line1 or p1.city):
+            for k, v in addr_defaults.items():
+                setattr(p1, k, v)
+            p1.save(update_fields=list(addr_defaults))
         p2, _ = Project.objects.get_or_create(
             project_number='PRJ-002',
             defaults={
@@ -92,11 +104,16 @@ class Command(BaseCommand):
                 'project_manager': manager,
                 'status': Project.STATUS_ACTIVE,
                 'notes': '',
+                **addr_defaults,
             },
         )
         if not p2.project_manager_id:
             p2.project_manager = manager
             p2.save(update_fields=['project_manager'])
+        if not (p2.address_line1 or p2.city):
+            for k, v in addr_defaults.items():
+                setattr(p2, k, v)
+            p2.save(update_fields=list(addr_defaults))
         p3, _ = Project.objects.get_or_create(
             project_number='PRJ-003',
             defaults={
@@ -105,77 +122,76 @@ class Command(BaseCommand):
                 'pm': 'Jane Doe',
                 'status': Project.STATUS_ON_HOLD,
                 'notes': 'On hold until Q2.',
+                **addr_defaults,
             },
         )
+        if not (p3.address_line1 or p3.city):
+            for k, v in addr_defaults.items():
+                setattr(p3, k, v)
+            p3.save(update_fields=list(addr_defaults))
         self.stdout.write('Projects: Building A, B, Retrofit C')
 
-        # Work items (mix of overdue, due this week, assigned)
-        WorkItem.objects.get_or_create(
-            project=p1,
-            title='Schedule foundation pour',
-            defaults={
-                'work_type': WorkItem.WORK_TYPE_BASELINE,
-                'priority': WorkItem.PRIORITY_HIGH,
-                'due_date': today - timedelta(days=3),
-                'status': WorkItem.STATUS_OPEN,
-                'assigned_to': s1,
-                'requested_by': 'Superintendent',
-                'notes': '',
-            },
+        # Work items (mix of overdue, due this week, assigned); set _audit_user so signal logs with manager
+        def get_or_create_work_item(project, title, **defaults):
+            w = WorkItem.objects.filter(project=project, title=title).first()
+            if w:
+                return w
+            w = WorkItem(project=project, title=title, **defaults)
+            w._audit_user = manager
+            w.save()
+            return w
+
+        get_or_create_work_item(
+            p1, 'Schedule foundation pour',
+            work_type=WorkItem.WORK_TYPE_BASELINE,
+            priority=WorkItem.PRIORITY_HIGH,
+            due_date=today - timedelta(days=3),
+            status=WorkItem.STATUS_OPEN,
+            assigned_to=s1,
+            requested_by='Superintendent',
+            notes='',
         )
-        WorkItem.objects.get_or_create(
-            project=p1,
-            title='Coordinate MEP rough-in',
-            defaults={
-                'work_type': WorkItem.WORK_TYPE_UPDATE,
-                'priority': WorkItem.PRIORITY_HIGH,
-                'due_date': today + timedelta(days=2),
-                'status': WorkItem.STATUS_IN_PROGRESS,
-                'assigned_to': s1,
-                'requested_by': 'PM',
-                'notes': '',
-            },
+        get_or_create_work_item(
+            p1, 'Coordinate MEP rough-in',
+            work_type=WorkItem.WORK_TYPE_UPDATE,
+            priority=WorkItem.PRIORITY_HIGH,
+            due_date=today + timedelta(days=2),
+            status=WorkItem.STATUS_IN_PROGRESS,
+            assigned_to=s1,
+            requested_by='PM',
+            notes='',
         )
-        WorkItem.objects.get_or_create(
-            project=p2,
-            title='Update 3-week lookahead',
-            defaults={
-                'work_type': WorkItem.WORK_TYPE_UPDATE_REVIEW,
-                'priority': WorkItem.PRIORITY_MEDIUM,
-                'due_date': end_of_week,
-                'status': WorkItem.STATUS_OPEN,
-                'assigned_to': s2,
-                'requested_by': 'Manager',
-                'notes': '',
-            },
+        get_or_create_work_item(
+            p2, 'Update 3-week lookahead',
+            work_type=WorkItem.WORK_TYPE_UPDATE_REVIEW,
+            priority=WorkItem.PRIORITY_MEDIUM,
+            due_date=end_of_week,
+            status=WorkItem.STATUS_OPEN,
+            assigned_to=s2,
+            requested_by='Manager',
+            notes='',
         )
-        WorkItem.objects.get_or_create(
-            project=p1,
-            title='Submittal log review',
-            defaults={
-                'work_type': WorkItem.WORK_TYPE_OTHER,
-                'task_type_other': 'Admin',
-                'priority': WorkItem.PRIORITY_LOW,
-                'due_date': today + timedelta(days=5),
-                'status': WorkItem.STATUS_OPEN,
-                'assigned_to': s2,
-                'requested_by': '',
-                'notes': '',
-            },
+        get_or_create_work_item(
+            p1, 'Submittal log review',
+            work_type=WorkItem.WORK_TYPE_OTHER,
+            task_type_other='Admin',
+            priority=WorkItem.PRIORITY_LOW,
+            due_date=today + timedelta(days=5),
+            status=WorkItem.STATUS_OPEN,
+            assigned_to=s2,
+            requested_by='',
+            notes='',
         )
-        WorkItem.objects.get_or_create(
-            project=p2,
-            title='Overdue item for demo',
-            defaults={
-                'work_type': WorkItem.WORK_TYPE_OTHER,
-                'task_type_other': 'Demo',
-                'priority': WorkItem.PRIORITY_HIGH,
-                'due_date': today - timedelta(days=10),
-                'status': WorkItem.STATUS_OPEN,
-                'assigned_to': s1,
-                'requested_by': '',
-                'notes': 'Shows in overdue list.',
-            },
+        get_or_create_work_item(
+            p2, 'Overdue item for demo',
+            work_type=WorkItem.WORK_TYPE_OTHER,
+            task_type_other='Demo',
+            priority=WorkItem.PRIORITY_HIGH,
+            due_date=today - timedelta(days=10),
+            status=WorkItem.STATUS_OPEN,
+            assigned_to=s1,
+            requested_by='',
+            notes='Shows in overdue list.',
         )
         self.stdout.write('Work items: 5 created or already exist.')
 

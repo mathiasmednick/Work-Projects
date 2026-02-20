@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from django import forms
 from django.contrib.auth import get_user_model
+from projects.models import Project
 from .models import WorkItem
 
 User = get_user_model()
@@ -32,14 +33,18 @@ class WorkItemForm(forms.ModelForm):
         model = WorkItem
         fields = (
             'project', 'title', 'work_type', 'task_type_other', 'priority', 'due_date',
-            'status', 'assigned_to', 'requested_by', 'notes',
+            'meeting_at', 'status', 'assigned_to', 'requested_by', 'notes',
         )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['task_type_other'].required = False
+        self.fields['project'].queryset = Project.objects.order_by('project_number')
+        self.fields['project'].label_from_instance = lambda obj: f"{obj.project_number} — {obj.name}"
         self.fields['assigned_to'].queryset = User.objects.filter(username__in=['Mathias', 'scheduler1']).order_by('username')
         self.fields['due_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+        self.fields['meeting_at'].required = False
+        self.fields['meeting_at'].widget = forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'})
         for name in self.fields:
             self.fields[name].widget.attrs.setdefault('class', 'form-control')
 

@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.MyWorkListView.as_view(), name='my_work'),
+    path('recommend/', views.work_recommend, name='work_recommend'),
     path('create/', views.WorkItemCreateView.as_view(), name='work_item_create'),
     path('deleted/', views.WorkItemDeletedListView.as_view(), name='work_item_deleted_list'),
     path('<int:pk>/', views.WorkItemDetailView.as_view(), name='work_item_detail'),

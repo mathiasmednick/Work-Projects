@@ -52,6 +52,7 @@ class WorkItem(models.Model):
     task_type_other = models.CharField(max_length=200, blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_MEDIUM)
     due_date = models.DateField(null=True, blank=True)
+    meeting_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,

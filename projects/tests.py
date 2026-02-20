@@ -21,6 +21,23 @@ class ProjectModelTest(TestCase):
         )
         self.assertEqual(str(p), 'Test Project')
 
+    def test_project_address_fields(self):
+        p = Project.objects.create(
+            project_number='PRJ-A',
+            name='With Address',
+            client='C',
+            pm='P',
+            status=Project.STATUS_ACTIVE,
+            address_line1='123 Main St',
+            city='Anytown',
+            state='CA',
+            zip_code='90001',
+        )
+        self.assertEqual(p.address_line1, '123 Main St')
+        self.assertEqual(p.city, 'Anytown')
+        self.assertEqual(p.state, 'CA')
+        self.assertEqual(p.zip_code, '90001')
+
 
 class ProjectViewsTest(TestCase):
     def setUp(self):
@@ -49,6 +66,12 @@ class ProjectViewsTest(TestCase):
         r = self.client.post(reverse('project_create'), {
             'project_number': 'PRJ-NEW',
             'name': 'New Proj',
+            'address_line1': '100 Test St',
+            'address_line2': '',
+            'city': 'Anytown',
+            'state': 'CA',
+            'zip_code': '90001',
+            'country': 'US',
             'client': 'C',
             'pm': 'P',
             'status': Project.STATUS_ACTIVE,

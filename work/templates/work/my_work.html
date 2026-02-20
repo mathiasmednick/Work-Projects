@@ -15,11 +15,23 @@
 {% endblock %}
 
 {% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
 <div class="tabs">
   <a href="?overdue=1" class="{% if filter_overdue %}active{% endif %}">Overdue <span class="badge badge-status-overdue">{{ overdue_count }}</span></a>
   <a href="?due_soon=1" class="{% if filter_due_soon %}active{% endif %}">Due Soon <span class="badge badge-status-in-progress">{{ due_soon_count }}</span></a>
+  <a href="?meeting_today=1" class="{% if filter_meeting_today %}active{% endif %}">Meeting today <span class="badge badge-status-open">{{ meeting_today_count }}</span></a>
   <a href="?status=in_progress" class="{% if filter_status == 'in_progress' %}active{% endif %}">In Progress <span class="badge badge-status-open">{{ in_progress_count }}</span></a>
   <a href="?status=done" class="{% if filter_status == 'done' %}active{% endif %}">Completed <span class="badge badge-status-done">{{ done_count }}</span></a>
+</div>
+
+<div class="chatbox card" style="margin-bottom: 1rem; max-width: 420px;">
+  <h2 class="card-title">What should I do?</h2>
+  <p class="page-subtitle" style="margin: 0 0 0.75rem 0;">Get a quick list of your top open tasks.</p>
+  <div class="chatbox-input-row">
+    <textarea id="chatbox-message" class="chatbox-textarea" rows="2" placeholder="Ask me anything…"></textarea>
+    <button type="button" id="chatbox-send" class="btn btn-primary">Send</button>
+  </div>
+  <div id="chatbox-response" class="chatbox-response" aria-live="polite"></div>
 </div>
 
 {% if my_priorities %}
@@ -43,6 +55,7 @@
   <form method="get" action="" class="filter-form" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1;">
     {% if filter_overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
     {% if filter_due_soon %}<input type="hidden" name="due_soon" value="1">{% endif %}
+    {% if filter_meeting_today %}<input type="hidden" name="meeting_today" value="1">{% endif %}
     {% if filter_status %}<input type="hidden" name="status" value="{{ filter_status }}">{% endif %}
     <input type="search" name="q" class="form-control search-input" placeholder="Task or project..." value="{{ filter_q }}" style="min-width: 180px;">
     <select name="project" class="form-control" style="width: auto;">
@@ -69,6 +82,7 @@
     <label style="display: flex; align-items: center; gap: 0.25rem;">to <input type="date" name="due_before" class="form-control" value="{{ filter_due_before }}" style="width: auto;"></label>
     <select name="sort" class="form-control" style="width: auto;">
       <option value="due_date" {% if sort == "due_date" %}selected{% endif %}>Due date</option>
+      <option value="meeting_at" {% if sort == "meeting_at" %}selected{% endif %}>Meeting time</option>
       <option value="project_number" {% if sort == "project_number" %}selected{% endif %}>Project number</option>
       <option value="project_name" {% if sort == "project_name" %}selected{% endif %}>Project name</option>
       <option value="pm" {% if sort == "pm" %}selected{% endif %}>PM</option>
@@ -135,4 +149,48 @@
 {% else %}
 <p style="color: var(--text-muted);">No work items.</p>
 {% endif %}
+
+<style>
+.chatbox .chatbox-input-row { display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; }
+.chatbox .chatbox-textarea { flex: 1; min-width: 0; padding: 0.5rem 0.75rem; font-size: 0.9375rem; font-family: inherit; border: 2px solid #2d3748; border-radius: 8px; background: #fff; resize: vertical; box-sizing: border-box; }
+.chatbox .chatbox-textarea:focus { outline: none; border-color: var(--primary, #0d6efd); }
+.chatbox .chatbox-response { min-height: 2rem; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg, #f8f9fa); font-size: 0.9375rem; }
+.chatbox .chatbox-response ul { margin: 0; padding-left: 1.25rem; }
+.chatbox .chatbox-response li { margin: 0.25rem 0; }
+.chatbox .chatbox-response .chatbox-empty { color: var(--text-muted); }
+</style>
+<script>
+(function() {
+  var form = document.getElementById('chatbox-message');
+  var sendBtn = document.getElementById('chatbox-send');
+  var responseEl = document.getElementById('chatbox-response');
+  var url = '{% url "work_recommend" %}';
+  var csrf = document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  if (!sendBtn || !responseEl) return;
+  function renderList(recommendations) {
+    if (!recommendations.length) {
+      responseEl.innerHTML = '<p class="chatbox-empty">No open or in-progress tasks. Create one to get started.</p>';
+      return;
+    }
+    var html = '<ol>';
+    recommendations.forEach(function(r) {
+      var due = r.due_date ? ' – Due ' + r.due_date : '';
+      var pri = r.priority ? ', ' + r.priority : '';
+      html += '<li>' + (r.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + due + pri + '</li>';
+    });
+    html += '</ol>';
+    responseEl.innerHTML = html;
+  }
+  sendBtn.addEventListener('click', function() {
+    responseEl.textContent = 'Loading…';
+    var body = new FormData();
+    body.append('csrfmiddlewaretoken', csrf || '');
+    body.append('message', (form && form.value) ? form.value.trim() : 'what should I do');
+    fetch(url, { method: 'POST', body: body, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderList(data.recommendations || []); })
+      .catch(function() { responseEl.innerHTML = '<p class="chatbox-empty">Could not load recommendations.</p>'; });
+  });
+})();
+</script>
 {% endblock %}

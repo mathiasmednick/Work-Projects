@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Weather — {{ project.name }}{% endblock %}
+
+{% block page_header %}
+<style>
+.weather-detail-panel { background: #2d3748; color: #e2e8f0; border-radius: 8px; padding: 1.25rem; margin-top: 1rem; }
+.weather-detail-panel .card-title { color: #fff; margin-top: 0; }
+.weather-detail-panel a { color: #90cdf4; }
+.weather-detail-badge { font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 999px; font-weight: 600; }
+.weather-detail-badge.high { background: #fc8181; color: #742a2a; }
+.weather-detail-badge.moderate { background: #fbd38d; color: #744210; }
+.weather-detail-badge.clear { background: #9ae6b4; color: #22543d; }
+.weather-detail-badge.low { background: #fbd38d; color: #744210; }
+.weather-detail-badge.unknown { background: #a0aec0; color: #2d3748; }
+.weather-day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.weather-day-card { background: rgba(255,255,255,0.08); border-radius: 6px; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+.weather-day-card .date { font-weight: 600; font-size: 0.875rem; }
+.weather-day-card .temp { font-size: 1.25rem; margin: 0.25rem 0; }
+.weather-day-card .meta { font-size: 0.75rem; color: #a0aec0; }
+</style>
+<div class="page-header">
+  <div>
+    <a href="{% url 'weather' %}" style="font-size: 0.875rem; color: var(--text-muted); text-decoration: none;">← Back to Weather</a>
+    <h1 class="page-title" style="margin-top: 0.25rem;">{{ project.name }}</h1>
+    <p class="page-subtitle" style="margin: 0;">{{ project.project_number }}{% if project.city or project.state %} — {{ project.city|default:"" }}{% if project.city and project.state %}, {% endif %}{{ project.state|default:"" }}{% endif %}</p>
+  </div>
+  <div class="page-header-actions">
+    <span class="weather-detail-badge {{ risk_level|lower }}">{% if risk_level == 'UNKNOWN' %}{% if has_address %}Forecast unavailable{% else %}Add city/state{% endif %}{% else %}{% if risk_level == 'HIGH' or risk_level == 'MODERATE' %}<span title="Rain possible">&#9928;</span> {% endif %}{{ risk_level }} RISK{% if max_precip_prob is not None %} ({{ max_precip_prob }}%){% endif %}{% endif %}</span>
+    <form method="post" action="{% url 'weather_refresh' %}" style="display: inline; margin-left: 0.5rem;">
+      {% csrf_token %}
+      <input type="hidden" name="project_id" value="{{ project.pk }}">
+      <button type="submit" class="btn btn-secondary">{% if risk_level == 'UNKNOWN' and has_address %}Retry{% else %}Refresh{% endif %}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="weather-detail-panel">
+  <h2 class="card-title">7-day detailed forecast</h2>
+  {% if cache and cache.fetched_at %}
+  <p style="font-size: 0.875rem; color: #a0aec0; margin: 0 0 0.5rem 0;">Last updated: {{ cache.fetched_at|date:"M j, g:i A" }}</p>
+  {% endif %}
+  {% if forecast_days %}
+  <div class="weather-day-cards">
+    {% for day in forecast_days %}
+    <div class="weather-day-card">
+      <div class="date">{{ day.date }}</div>
+      <div class="temp">{% if day.temp_max is not None %}{{ day.temp_max }}°{% if day.temp_min is not None %} / L: {{ day.temp_min }}°{% endif %}{% else %}—{% endif %}</div>
+      <div class="meta">
+        {% if day.precip_prob is not None %}{{ day.precip_prob }}% Precip{% endif %}
+        {% if day.wind is not None %} · {{ day.wind }} mph{% endif %}
+        {% if day.precip is not None and day.precip_prob is None %} · {{ day.precip }} mm{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: #a0aec0;">{% if has_address %}Forecast unavailable. Click Retry to fetch.{% else %}Add city/state to get forecast.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

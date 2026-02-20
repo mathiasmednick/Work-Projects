@@ -11,7 +11,10 @@
   <div class="page-header-actions">
     <a href="?week_start={{ prev_week|date:'Y-m-d' }}{% if is_manager and target_user %}&user={{ target_user.pk }}{% endif %}" class="btn btn-secondary">← Prev week</a>
     <a href="?week_start={{ next_week|date:'Y-m-d' }}{% if is_manager and target_user %}&user={{ target_user.pk }}{% endif %}" class="btn btn-secondary">Next week →</a>
-    <a href="{% url 'time_entry_export_csv' %}?from={{ week_start }}&to={{ week_end }}{% if is_manager and target_user %}&user={{ target_user.pk }}{% endif %}" class="btn btn-primary">Export CSV</a>
+    <a href="{% url 'time_entry_export_csv' %}?from={{ week_start }}&to={{ week_end }}{% if is_manager and target_user %}&user={{ target_user.pk }}{% endif %}" class="btn-csv-export">
+      <span class="btn-csv-circle" aria-hidden="true">&#8595;</span>
+      <span class="btn-csv-title">Export CSV</span>
+    </a>
     <a href="{% url 'time_entry_list' %}?week_start={{ week_start|date:'Y-m-d' }}" class="btn btn-secondary">Log time</a>
   </div>
 </div>

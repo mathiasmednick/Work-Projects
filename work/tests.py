@@ -2,7 +2,7 @@ from django.test import TestCase, Client, RequestFactory
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
-from core.models import Profile
+from core.models import Profile, AuditLog
 from projects.models import Project
 from work.models import WorkItem
 from work.views import MyWorkListView
@@ -66,6 +66,9 @@ class MyWorkViewTest(TestCase):
         self.scheduler = User.objects.create_user(username='sched', password='pass')
         self.scheduler.profile.role = Profile.SCHEDULER
         self.scheduler.profile.save()
+        self.scheduler1 = User.objects.create_user(username='scheduler1', password='pass')
+        self.scheduler1.profile.role = Profile.SCHEDULER
+        self.scheduler1.profile.save()
         self.other = User.objects.create_user(username='other', password='pass')
         self.other.profile.role = Profile.SCHEDULER
         self.other.profile.save()
@@ -141,3 +144,64 @@ class MyWorkViewTest(TestCase):
         self.assertIsNotNone(entry)
         self.assertEqual(float(entry.hours), 2.5)
         self.assertEqual(entry.description, 'Finished the task')
+
+    def test_due_soon_excludes_completed_tasks(self):
+        """Completed tasks with due_date in due-soon range do not appear in Due Soon tab."""
+        from datetime import date, timedelta
+        today = date.today()
+        self.assigned_item.due_date = today + timedelta(days=3)
+        self.assigned_item.status = WorkItem.STATUS_DONE
+        self.assigned_item.save()
+        request = self.factory.get(reverse('my_work'), {'due_soon': '1'})
+        request.user = self.scheduler
+        response = MyWorkListView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        response.render()
+        self.assertNotIn(b'Mine', response.content)
+
+    def test_create_with_status_done_redirects_to_complete(self):
+        """Creating a task with status=Completed redirects to complete-and-log-time page."""
+        self.client.login(username='scheduler1', password='pass')
+        r = self.client.post(
+            reverse('work_item_create'),
+            {
+                'project': self.project.pk,
+                'title': 'Done at create',
+                'work_type': WorkItem.WORK_TYPE_UPDATE,
+                'task_type_other': '',
+                'priority': WorkItem.PRIORITY_MEDIUM,
+                'due_date': '',
+                'status': WorkItem.STATUS_DONE,
+                'assigned_to': str(self.scheduler1.pk),
+                'requested_by': '',
+                'notes': '',
+            },
+            follow=False,
+        )
+        self.assertEqual(r.status_code, 302)
+        task = WorkItem.objects.get(title='Done at create')
+        self.assertIn(reverse('work_item_complete', kwargs={'pk': task.pk}), r.url)
+
+    def test_create_task_produces_one_audit_entry_with_user(self):
+        """Creating a task via the view produces exactly one create audit log with request.user."""
+        self.client.login(username='scheduler1', password='pass')
+        self.client.post(
+            reverse('work_item_create'),
+            {
+                'project': self.project.pk,
+                'title': 'Audited task',
+                'work_type': WorkItem.WORK_TYPE_UPDATE,
+                'task_type_other': '',
+                'priority': WorkItem.PRIORITY_MEDIUM,
+                'due_date': '',
+                'status': WorkItem.STATUS_OPEN,
+                'assigned_to': str(self.scheduler1.pk),
+                'requested_by': '',
+                'notes': '',
+            },
+            follow=False,
+        )
+        task = WorkItem.objects.get(title='Audited task')
+        create_logs = list(AuditLog.objects.filter(object_id=task.pk, action=AuditLog.ACTION_CREATE))
+        self.assertEqual(len(create_logs), 1)
+        self.assertEqual(create_logs[0].user_id, self.scheduler1.pk)

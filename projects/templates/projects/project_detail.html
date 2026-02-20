@@ -21,6 +21,13 @@
   <table class="data-table">
     <tr><th>Project number</th><td>{{ project.project_number }}</td></tr>
     <tr><th>Name</th><td>{{ project.name }}</td></tr>
+    {% if project.address_line1 or project.city %}
+    <tr><th>Address</th><td>
+      {{ project.address_line1 }}{% if project.address_line2 %}, {{ project.address_line2 }}{% endif %}
+      {% if project.address_line1 and project.city %}<br>{% endif %}
+      {% if project.city %}{{ project.city }}{% if project.state %}, {{ project.state }}{% endif %} {{ project.zip_code }}{% if project.country %} {{ project.country }}{% endif %}{% endif %}
+    </td></tr>
+    {% endif %}
     <tr><th>Client</th><td>{{ project.client }}</td></tr>
     <tr><th>PM</th><td>{{ project.pm }}</td></tr>
     <tr><th>Status</th><td>{% if project.status == 'active' %}<span class="badge badge-status-active">Active</span>{% elif project.status == 'on_hold' %}<span class="badge badge-status-on-hold">On Hold</span>{% else %}<span class="badge badge-status-complete">Completed</span>{% endif %}</td></tr>

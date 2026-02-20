@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Schedule Update Email Builder{% endblock %}
+
+{% block page_header %}
+<style>
+.schedule-email-builder { max-width: 56rem; margin: 0 auto; }
+.schedule-email-local-notice {
+  background: #e8f4f8;
+  border: 1px solid #0d6efd;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9375rem;
+}
+.schedule-email-privacy { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+.schedule-email-controls { display: grid; gap: 1rem; margin-bottom: 1rem; }
+.schedule-email-controls label { display: block; font-weight: 500; margin-bottom: 0.25rem; }
+.schedule-email-output-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.schedule-email-textarea { width: 100%; min-height: 320px; font-family: inherit; font-size: 0.9375rem; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); resize: vertical; }
+.schedule-email-mapping { margin-top: 1rem; border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem; background: #f8f9fa; }
+.schedule-email-preview-table { width: 100%; font-size: 0.8125rem; border-collapse: collapse; margin-top: 0.5rem; }
+.schedule-email-preview-table th, .schedule-email-preview-table td { padding: 0.35rem 0.5rem; text-align: left; border: 1px solid var(--border-color); }
+.schedule-email-preview-table th { background: #eee; }
+</style>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Schedule Update Email Builder</h1>
+    <p class="page-subtitle">Build a status-update email from an MS Project CSV. All processing is local.</p>
+  </div>
+</div>
+
+<div class="schedule-email-local-notice" role="status" aria-live="polite">
+  <strong>Local-only.</strong> Your CSV is processed locally in your browser and is never uploaded.
+</div>
+
+<div class="schedule-email-builder">
+  <p class="schedule-email-privacy">Your file and schedule data never leave your device. No server upload, no logs, no storage except optional local preferences (column mapping and UI settings).</p>
+
+  <div class="card">
+    <h2 class="card-title">Input</h2>
+    <div class="schedule-email-controls">
+      <div>
+        <label for="schedule-email-csv">Upload CSV (MS Project export)</label>
+        <input type="file" id="schedule-email-csv" accept=".csv,text/csv" aria-describedby="schedule-email-csv-desc">
+        <p id="schedule-email-csv-desc" class="schedule-email-privacy" style="margin-top: 0.25rem;">File is read in your browser only; it is not sent to the server.</p>
+      </div>
+      <div>
+        <label for="schedule-email-status-date">Status date (required)</label>
+        <input type="date" id="schedule-email-status-date" required aria-required="true">
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start;">
+        <label style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="schedule-email-use-baseline" checked> Use baseline dates for expectations
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="schedule-email-include-milestones"> Include milestones
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="schedule-email-include-summary"> Include summary tasks
+        </label>
+      </div>
+      <div>
+        <label for="schedule-email-threshold">Progress tolerance %</label>
+        <input type="number" id="schedule-email-threshold" min="0" max="100" value="15" style="width: 5rem;">
+      </div>
+      <div>
+        <label for="schedule-email-group-by">Group by</label>
+        <select id="schedule-email-group-by">
+          <option value="">None</option>
+        </select>
+      </div>
+      <div>
+        <label for="schedule-email-deadline">Response deadline text</label>
+        <input type="text" id="schedule-email-deadline" value="by EOD tomorrow" style="max-width: 20rem;">
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" id="schedule-email-generate" class="btn btn-primary">Generate email body</button>
+        <button type="button" id="schedule-email-clear" class="btn btn-secondary">Clear session</button>
+      </div>
+    </div>
+
+    <div id="schedule-email-mapping-section" class="schedule-email-mapping" style="display: none;">
+      <h3 style="margin: 0 0 0.5rem 0;">Column mapping</h3>
+      <p class="schedule-email-privacy" style="margin-bottom: 0.5rem;">Map CSV columns to required fields. Only mapping choices are saved locally.</p>
+      <div id="schedule-email-mapping-fields"></div>
+      <button type="button" id="schedule-email-apply-mapping" class="btn btn-primary" style="margin-top: 0.5rem;">Apply mapping</button>
+      <div id="schedule-email-preview-wrap" style="margin-top: 0.75rem;">
+        <p style="margin: 0 0 0.25rem 0;">Preview (first 20 rows)</p>
+        <div id="schedule-email-preview" style="overflow-x: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="schedule-email-output-card" style="display: none;">
+    <h2 class="card-title">Email body (copy and paste into your email)</h2>
+    <div class="schedule-email-output-actions">
+      <button type="button" id="schedule-email-copy" class="btn btn-primary">Copy email body</button>
+      <button type="button" id="schedule-email-export-csv" class="btn btn-secondary">Export &quot;Needs update&quot; CSV</button>
+    </div>
+    <textarea id="schedule-email-output" class="schedule-email-textarea" readonly aria-label="Generated email body"></textarea>
+    <p id="schedule-email-copy-feedback" style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-muted);" aria-live="polite"></p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<script src="{% static 'core/js/schedule_email_builder.js' %}"></script>
+{% endblock %}

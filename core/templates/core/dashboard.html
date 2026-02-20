@@ -3,19 +3,21 @@
 {% block title %}Manager Overview{% endblock %}
 
 {% block page_header %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Manager Overview</h1>
-  </div>
-  <div class="page-header-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-    <a class="btn btn-secondary" href="?week_start={{ prev_week|date:'Y-m-d' }}">Prev Week</a>
-    <form method="get" style="display: inline-flex; gap: 0.35rem; align-items: center;">
-      <label for="id_week_start">Week of</label>
-      <input id="id_week_start" type="date" name="week_start" class="form-control" value="{{ week_start|date:'Y-m-d' }}">
-      <button type="submit" class="btn btn-secondary">Go</button>
-    </form>
-    <a class="btn btn-secondary" href="?week_start={{ next_week|date:'Y-m-d' }}">Next Week</a>
-    <a href="{% url 'work_item_create' %}" class="btn btn-primary">+ New Work Item</a>
+<div class="dashboard-top-bar">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Manager Overview</h1>
+    </div>
+    <div class="page-header-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <a class="btn btn-secondary" href="?week_start={{ prev_week|date:'Y-m-d' }}">Prev Week</a>
+      <form method="get" style="display: inline-flex; gap: 0.35rem; align-items: center;">
+        <label for="id_week_start">Week of</label>
+        <input id="id_week_start" type="date" name="week_start" class="form-control" value="{{ week_start|date:'Y-m-d' }}">
+        <button type="submit" class="btn btn-secondary">Go</button>
+      </form>
+      <a class="btn btn-secondary" href="?week_start={{ next_week|date:'Y-m-d' }}">Next Week</a>
+      <a href="{% url 'work_item_create' %}" class="btn btn-primary">+ New Work Item</a>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -86,14 +88,14 @@
       <tbody>
         {% for item in active_work_items %}
         <tr>
-          <td><span class="priority-dot p2"></span>{{ item.project.name }}</td>
-          <td>{{ item.title }}</td>
-          <td>{% if item.assigned_to %}<span class="sidebar-user-avatar" style="width:24px;height:24px;font-size:0.65rem;display:inline-flex;">{{ item.assigned_to.username|slice:":2"|upper }}</span> {{ item.assigned_to.username }}{% else %}—{% endif %}</td>
+          <td><span class="priority-dot project-dot"></span>{{ item.project.name }}</td>
+          <td><a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a></td>
+          <td>{% if item.assigned_to %}<div class="assignee-cell"><span class="sidebar-user-avatar assignee-avatar">{{ item.assigned_to.username|slice:":2"|upper }}</span><span class="assignee-name">{{ item.assigned_to.get_full_name|default:item.assigned_to.username }}</span></div>{% else %}—{% endif %}</td>
           <td>
             {% if item.due_date %}
-              {% if item.due_date < today %}<span style="color: var(--status-danger);">{{ item.due_date }} (Overdue)</span>
+              {% if item.due_date < today %}<span style="color: var(--status-danger);">{{ item.due_date|date:"M. j, Y" }} (Overdue)</span>
               {% elif item.due_date == today %}<span style="color: var(--status-warning);">Today</span>
-              {% else %}{{ item.due_date }}{% endif %}
+              {% else %}{{ item.due_date|date:"M. j, Y" }}{% endif %}
             {% else %}—{% endif %}
           </td>
           <td>
@@ -109,7 +111,7 @@
         {% endfor %}
       </tbody>
     </table>
-    <p class="pagination-info" style="margin-top: 0.5rem;">Showing 1–{{ active_work_items|length }} of {{ overdue.count|add:due_this_week.count }} items</p>
+    <p class="pagination-info" style="margin-top: 0.5rem;">Showing 1–{{ active_work_items|length }} of {{ active_work_items_total }} items</p>
     {% else %}
     <p style="color: var(--text-muted); margin: 0;">No active work items.</p>
     {% endif %}

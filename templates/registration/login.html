@@ -7,17 +7,25 @@
   <div class="card login-card">
     <h1>Log in</h1>
     {% if form.errors %}
-    <p style="color: var(--status-danger); margin-bottom: 1rem;">Invalid username or password. Please try again.</p>
+    <p class="login-error">Invalid username or password. Please try again.</p>
     {% endif %}
     <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
       <div class="form-group">
-        <label for="id_username">Username</label>
-        <input type="text" name="username" id="id_username" class="form-control" required autofocus>
+        <div class="login-input-wrap">
+          <input type="text" name="username" id="id_username" class="form-control input" placeholder=" " required autofocus>
+          <label class="label" for="id_username">Username</label>
+          <div class="topline"></div>
+          <div class="underline"></div>
+        </div>
       </div>
       <div class="form-group">
-        <label for="id_password">Password</label>
-        <input type="password" name="password" id="id_password" class="form-control" required>
+        <div class="login-input-wrap">
+          <input type="password" name="password" id="id_password" class="form-control input" placeholder=" " required>
+          <label class="label" for="id_password">Password</label>
+          <div class="topline"></div>
+          <div class="underline"></div>
+        </div>
       </div>
       <input type="hidden" name="next" value="{{ next }}">
       <div class="form-actions">

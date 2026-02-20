@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Schedule Email Builder – Unit Tests{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <h1 class="page-title">Schedule Email Builder – JS Unit Tests</h1>
+  <p class="page-subtitle">Run engine and question-generator tests in the browser.</p>
+</div>
+{% endblock %}
+{% block content %}
+<div id="schedule-email-builder-test-runner"></div>
+<script src="{% static 'core/js/schedule_email_builder.js' %}"></script>
+<script>
+(function() {
+  var api = window._scheduleEmailBuilderTest;
+  if (!api) { document.body.innerHTML = '<p>Test API not exposed. Check that script loaded and runner div exists.</p>'; return; }
+  var failures = [];
+  function assert(cond, msg) { if (!cond) failures.push(msg); }
+  function assertEq(a, b, msg) { if (a !== b) failures.push(msg + ' (expected ' + b + ', got ' + a + ')'); }
+
+  var d = api.parseDate('2025-02-18');
+  assert(d && d.getFullYear() === 2025 && d.getMonth() === 1 && d.getDate() === 18, 'parseDate ISO');
+  assert(!api.parseDate(''), 'parseDate empty');
+  assert(api.dateToYMD(d) === '2025-02-18', 'dateToYMD');
+
+  var r = api.getExpectedStateAndPct(d, new Date(2025, 0, 1), new Date(2025, 2, 1));
+  assert(r.state === 'In progress', 'expectedState in progress');
+  assert(r.pct !== null && r.pct >= 0 && r.pct <= 100, 'expectedPct in range');
+
+  var notStarted = api.getExpectedStateAndPct(new Date(2025, 0, 1), new Date(2025, 2, 1), new Date(2024, 11, 1));
+  assert(notStarted.state === 'Not started' && notStarted.pct === 0, 'expectedState not started');
+
+  var finished = api.getExpectedStateAndPct(new Date(2025, 0, 1), new Date(2025, 2, 1), new Date(2025, 3, 1));
+  assert(finished.state === 'Finished' && finished.pct === 100, 'expectedState finished');
+
+  var row = {};
+  var mapping = { taskName: 'Name', start: 'Start', finish: 'Finish', actualStart: 'Actual Start', actualFinish: 'Actual Finish', percentComplete: '% Complete', totalSlack: 'Total Slack', baselineStart: 'Baseline Start', baselineFinish: 'Baseline Finish' };
+  row['Name'] = 'Task A';
+  row['Start'] = '2025-01-01';
+  row['Finish'] = '2025-01-10';
+  row['Actual Start'] = '';
+  row['Actual Finish'] = '';
+  row['% Complete'] = '';
+  row['Total Slack'] = '2';
+  row['Baseline Start'] = '';
+  row['Baseline Finish'] = '';
+  var statusDate = new Date(2025, 0, 5);
+  var flags = api.getFlags(row, mapping, statusDate, false, 15);
+  assert(flags.expectedState === 'In progress', 'flags expectedState');
+  assert(flags.missingProgress === true, 'flags missingProgress when no %');
+  assert(api.needsUpdate(flags) === true, 'needsUpdate true when missingProgress');
+
+  var task = { flags: flags, plannedStartStr: '2025-01-01', plannedFinishStr: '2025-01-10' };
+  var q = api.generateQuestion(task, '2025-01-05');
+  assert(q.indexOf('confirm current % complete') !== -1, 'question for missingProgress');
+
+  var taskFinished = { flags: { shouldBeFinished: true, plannedFinishStr: '2025-01-10' }, plannedFinishStr: '2025-01-10' };
+  var qFinish = api.generateQuestion(taskFinished, '2025-01-15');
+  assert(qFinish.indexOf('Is it complete') !== -1, 'question for shouldBeFinished');
+
+  var out = document.getElementById('schedule-email-builder-test-runner');
+  if (out) {
+    out.innerHTML = failures.length === 0
+      ? '<p style="color: green;">All tests passed.</p>'
+      : '<ul>' + failures.map(function(f) { return '<li>' + f + '</li>'; }).join('') + '</ul>';
+  }
+})();
+</script>
+{% endblock %}

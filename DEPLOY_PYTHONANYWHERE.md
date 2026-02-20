@@ -98,6 +98,35 @@ SQLite is stored in the project folder; no separate database server is needed. T
 - Add your PythonAnywhere host to `ALLOWED_HOSTS`, e.g. `['<username>.pythonanywhere.com']`.
 - Use HTTPS (PythonAnywhere provides it for your domain).
 
+## Redeploy (after code changes)
+
+In a Bash console on PythonAnywhere:
+
+```bash
+cd ~/gc_scheduler
+git pull   # or re-upload your code
+workon gc_scheduler   # or: source ~/.virtualenvs/gc_scheduler/bin/activate
+pip install -r requirements.txt
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+```
+
+Then click **Reload** for your web app on the **Web** tab.
+
+### Post-deploy verification
+
+After every deploy, check these items before moving on:
+
+1. **Static files load**: Open any page (e.g. `/`) and verify the sidebar is dark blue with styled nav links. If the page is unstyled plain text, static files are not being served.
+2. **Check browser devtools**: Open the Network tab, reload the page, and confirm `base.css` and `components.css` return HTTP 200 (not 404 or 403).
+3. **Static mapping**: On the PythonAnywhere **Web** tab, verify the static mapping:
+   - URL: `/static/`
+   - Directory: `/home/<username>/gc_scheduler/static`
+4. **Dashboard check**: Log in as a manager and confirm the Manager Overview shows the grey top bar, stat cards, and tables.
+5. **Nested page check**: Navigate to at least one nested URL (e.g. Weather or Whiteboard) and confirm CSS still loads correctly.
+
+If styles break after a deploy, the fix is almost always: run `collectstatic --noinput` again + Reload on the Web tab.
+
 ## Free tier limits
 
 - One web app, limited CPU and disk. See [Free accounts](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/) for current limits.

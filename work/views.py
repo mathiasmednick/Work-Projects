@@ -1,4 +1,6 @@
 from datetime import date, timedelta
+from django.db.models import F
+from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
 from django.contrib import messages
@@ -21,6 +23,7 @@ SORT_FIELDS = {
     'assigned_to': 'assigned_to__username',
     'created': 'created_at',
     'due_date': 'due_date',
+    'meeting_at': 'meeting_at',
     'status': 'status',
     'work_type': 'work_type',
 }
@@ -50,9 +53,15 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
             qs = qs.filter(due_date__lt=today, status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS))
         if GET.get('due_soon') == '1':
             end = today + timedelta(days=7)
-            qs = qs.filter(due_date__gte=today, due_date__lte=end)
+            qs = qs.filter(
+                due_date__gte=today,
+                due_date__lte=end,
+                status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+            )
         if GET.get('status'):
             qs = qs.filter(status=GET.get('status'))
+        if GET.get('meeting_today') == '1':
+            qs = qs.filter(meeting_at__date=today)
 
         # Advanced filters
         if GET.get('project'):
@@ -86,10 +95,15 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
                 | Q(project__project_number__icontains=search)
             )
 
-        # Sort
-        sort = GET.get('sort') or 'due_date'
-        order = (GET.get('order') or 'desc').lower()
-        if sort in SORT_FIELDS:
+        # Sort (when meeting today, default to meeting time order)
+        sort = GET.get('sort') or ('meeting_at' if GET.get('meeting_today') == '1' else 'due_date')
+        order = (GET.get('order') or ('asc' if GET.get('meeting_today') == '1' else 'desc')).lower()
+        if sort == 'meeting_at':
+            if order == 'asc':
+                qs = qs.order_by(F('meeting_at').asc(nulls_last=True), 'priority')
+            else:
+                qs = qs.order_by(F('meeting_at').desc(nulls_last=True), 'priority')
+        elif sort in SORT_FIELDS:
             order_by = SORT_FIELDS[sort]
             if order == 'asc':
                 qs = qs.order_by(order_by, 'priority')
@@ -108,13 +122,19 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
         GET = self.request.GET
         ctx['filter_overdue'] = GET.get('overdue') == '1'
         ctx['filter_due_soon'] = GET.get('due_soon') == '1'
+        ctx['filter_meeting_today'] = GET.get('meeting_today') == '1'
         ctx['filter_status'] = GET.get('status', '')
         ctx['is_manager'] = getattr(getattr(self.request.user, 'profile', None), 'role', None) == 'manager'
         today = date.today()
         end_soon = today + timedelta(days=7)
         base = self._base_queryset()
         ctx['overdue_count'] = base.filter(due_date__lt=today, status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS)).count()
-        ctx['due_soon_count'] = base.filter(due_date__gte=today, due_date__lte=end_soon).count()
+        ctx['due_soon_count'] = base.filter(
+            due_date__gte=today,
+            due_date__lte=end_soon,
+            status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+        ).count()
+        ctx['meeting_today_count'] = base.filter(meeting_at__date=today).count()
         ctx['in_progress_count'] = base.filter(status=WorkItem.STATUS_IN_PROGRESS).count()
         ctx['done_count'] = base.filter(status=WorkItem.STATUS_DONE).count()
         ctx['today'] = today
@@ -169,15 +189,11 @@ class WorkItemCreateView(SchedulerOrManagerMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
+        form.instance._audit_user = self.request.user
         messages.success(self.request, 'Task created.')
         response = super().form_valid(form)
-        log_action(
-            self.request.user,
-            'workitem',
-            self.object.pk,
-            self.object.title,
-            AuditLog.ACTION_CREATE,
-        )
+        if form.cleaned_data.get('status') == WorkItem.STATUS_DONE:
+            return redirect('work_item_complete', pk=self.object.pk)
         return response
 
 
@@ -301,6 +317,25 @@ class WorkItemCompleteView(SchedulerOrManagerMixin, View):
         )
         messages.success(request, 'Task completed and time logged.')
         return redirect('my_work')
+
+
+def work_recommend(request):
+    """Scheduler recommendation: top open/in-progress items by due date and priority."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'recommendations': []}, status=200)
+    qs = WorkItem.objects.filter(
+        assigned_to=request.user,
+        status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+    ).order_by(F('due_date').asc(nulls_last=True), 'priority')[:10]
+    recommendations = [
+        {
+            'title': item.title,
+            'due_date': str(item.due_date) if item.due_date else '',
+            'priority': item.get_priority_display(),
+        }
+        for item in qs
+    ]
+    return JsonResponse({'recommendations': recommendations})
 
 
 class WorkItemRestoreView(SchedulerOrManagerMixin, View):

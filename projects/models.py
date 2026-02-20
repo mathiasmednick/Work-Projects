@@ -14,6 +14,12 @@ class Project(models.Model):
 
     project_number = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=200)
+    address_line1 = models.CharField(max_length=255, blank=True)
+    address_line2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    zip_code = models.CharField(max_length=20, blank=True)
+    country = models.CharField(max_length=50, default='US', blank=True)
     client = models.CharField(max_length=200)
     pm = models.CharField(max_length=200)
     project_manager = models.ForeignKey(

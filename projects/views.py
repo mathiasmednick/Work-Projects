@@ -17,6 +17,14 @@ class ProjectListView(ManagerRequiredMixin, ListView):
     template_name = 'projects/project_list.html'
     paginate_by = 10
 
+    def get_paginate_by(self, queryset):
+        per_page = self.request.GET.get('per_page')
+        if per_page and per_page.isdigit():
+            n = int(per_page)
+            if n in (10, 25, 50, 100):
+                return n
+        return 10
+
     def get_queryset(self):
         qs = Project.objects.annotate(
             total_hours=Sum('time_entries__hours')

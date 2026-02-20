@@ -26,6 +26,7 @@
     <tr><th>Task type</th><td>{{ work_item.get_display_work_type }}</td></tr>
     <tr><th>Priority</th><td>{{ work_item.get_priority_display }}</td></tr>
     <tr><th>Due date</th><td>{{ work_item.due_date|default:"—" }}</td></tr>
+    <tr><th>Meeting time</th><td>{% if work_item.meeting_at %}{{ work_item.meeting_at|date:"M j, Y" }} at {{ work_item.meeting_at|time:"g:i A" }}{% else %}—{% endif %}</td></tr>
     <tr><th>Status</th><td>{{ work_item.get_status_display }}</td></tr>
     <tr><th>Assigned to</th><td>{{ work_item.assigned_to.get_full_name|default:work_item.assigned_to.username|default:"—" }}</td></tr>
     <tr><th>Requested by</th><td>{{ work_item.requested_by|default:"—" }}</td></tr>

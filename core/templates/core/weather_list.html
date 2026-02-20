@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Weather — Table view{% endblock %}
+
+{% block page_header %}
+<style>
+.weather-risk-pill { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px; font-weight: 600; }
+.weather-risk-pill.high { background: #dc3545; color: #fff; }
+.weather-risk-pill.moderate { background: #fd7e14; color: #fff; }
+.weather-risk-pill.low { background: #ffc107; color: #1a1a1a; }
+.weather-risk-pill.clear { background: #28a745; color: #fff; }
+.weather-risk-pill.unknown { background: #6c757d; color: #fff; }
+.weather-table-wrap { padding: 0.5rem 0; }
+.weather-table-wrap .data-table { margin: 0; }
+.weather-table-wrap .data-table th, .weather-table-wrap .data-table td { padding: 0.5rem 0.75rem; }
+</style>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Weather — Table</h1>
+    <p class="page-subtitle">Active projects with 7-day forecast (cached).</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'weather' %}" class="btn btn-secondary">Dashboard</a>
+    <form method="post" action="{% url 'weather_refresh' %}" style="display: inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Refresh all</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card weather-table-wrap">
+  <h2 class="card-title">Projects</h2>
+  {% if project_rows %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>PROJECT</th>
+        <th>NAME</th>
+        <th>CITY / STATE</th>
+        <th>RISK</th>
+        <th>7-DAY</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in project_rows %}
+      <tr>
+        <td><a href="{% url 'weather_project_detail' project_id=row.project.pk %}">{{ row.project.project_number }}</a></td>
+        <td><a href="{% url 'weather_project_detail' project_id=row.project.pk %}">{{ row.project.name }}</a></td>
+        <td>{% if row.project.city or row.project.state %}{{ row.project.city|default:"" }}{% if row.project.city and row.project.state %}, {% endif %}{{ row.project.state|default:"" }}{% else %}—{% endif %}</td>
+        <td><span class="weather-risk-pill {{ row.risk_level|lower }}">{% if row.risk_level == 'UNKNOWN' %}{% if row.has_address %}Forecast unavailable{% else %}Add city/state{% endif %}{% else %}{% if row.risk_level == 'HIGH' or row.risk_level == 'MODERATE' %}<span title="Rain possible">&#9928;</span> {% endif %}{{ row.risk_level }}{% if row.max_precip_prob is not None %} ({{ row.max_precip_prob }}%){% endif %}{% endif %}</span></td>
+        <td>{% if row.cache and row.cache.fetched_at %}{{ row.cache.fetched_at|date:"M j" }}{% elif row.has_address %}<form method="post" action="{% url 'weather_refresh' %}" style="display: inline;">{% csrf_token %}<input type="hidden" name="project_id" value="{{ row.project.pk }}"><button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Retry</button></form>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: var(--text-muted);">No active projects.</p>
+  {% endif %}
+</div>
+{% endblock %}
