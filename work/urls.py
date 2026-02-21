@@ -11,4 +11,6 @@ urlpatterns = [
     path('<int:pk>/complete/', views.WorkItemCompleteView.as_view(), name='work_item_complete'),
     path('<int:pk>/delete/', views.WorkItemDeleteView.as_view(), name='work_item_delete'),
     path('<int:pk>/restore/', views.WorkItemRestoreView.as_view(), name='work_item_restore'),
+    path('update-requests/', views.UpdateRequestListView.as_view(), name='update_request_list'),
+    path('update-requests/<int:pk>/mark-replied/', views.UpdateRequestMarkRepliedView.as_view(), name='update_request_mark_replied'),
 ]

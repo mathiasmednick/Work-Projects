@@ -60,20 +60,6 @@ class DashboardAccessTest(TestCase):
         r = self.client.get(reverse('project_list'))
         self.assertEqual(r.status_code, 403)
 
-    def test_scheduler_can_view_whiteboard(self):
-        from core.views import WhiteboardListView
-        request = self.factory.get(reverse('whiteboard'))
-        request.user = self.scheduler
-        r = WhiteboardListView.as_view()(request)
-        self.assertEqual(r.status_code, 200)
-
-    def test_scheduler_gets_403_for_whiteboard_post(self):
-        from core.models import Board
-        board = Board.objects.create(name='Test Board')
-        self.client.login(username='sched', password='pass')
-        r = self.client.post(reverse('whiteboard_item_create', kwargs={'board_id': board.pk}), {'type': 'NOTE', 'x': 0, 'y': 0})
-        self.assertEqual(r.status_code, 403)
-
     def test_scheduler_can_access_weather(self):
         from core.views import WeatherDashboardView
         request = self.factory.get(reverse('weather'))

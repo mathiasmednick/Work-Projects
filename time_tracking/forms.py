@@ -12,9 +12,10 @@ class TimeEntryForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['work_item'].required = False
         self.fields['work_item'].queryset = WorkItem.objects.select_related('project').all()
+        self.fields['project'].required = False
         self.fields['work_code'].required = False
         self.fields['date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
-        self.fields['hours'].widget.attrs.update({'min': '0', 'step': '0.25'})
+        self.fields['hours'].widget.attrs.update({'min': '0', 'step': '0.01'})
         for name in self.fields:
             self.fields[name].widget.attrs.setdefault('class', 'form-control')
 

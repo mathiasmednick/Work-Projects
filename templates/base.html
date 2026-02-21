@@ -14,8 +14,8 @@
   <div class="app-layout">
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <span class="sidebar-brand-icon">G</span>
-        <span>GC Scheduler</span>
+        <img src="{% static 'core/img/rba-logo.png' %}" alt="RBA Logo" class="sidebar-brand-logo">
+        <span>Scheduling &amp; Data Analytics Dept</span>
       </div>
       <div style="padding: 0 1rem 0.5rem;">
         <form method="get" action="{% url 'search' %}" style="display: flex;">
@@ -30,33 +30,33 @@
         </a>
         {% endif %}
         <a href="{% url 'my_work' %}" class="{% if request.resolver_match.url_name == 'my_work' %}active{% endif %}">
-          <span class="nav-icon">&#128197;</span> Schedule
+          <span class="nav-icon">&#128197;</span> Tasks
+        </a>
+        <a href="{% url 'update_request_list' %}" class="{% if request.resolver_match.url_name == 'update_request_list' %}active{% endif %}">
+          <span class="nav-icon">&#128233;</span> Update Requests
+        </a>
+        <a href="{% url 'schedule_email_builder' %}" class="{% if request.resolver_match.url_name == 'schedule_email_builder' %}active{% endif %}">
+          <span class="nav-icon">&#9993;</span> Schedule Update Email
+        </a>
+        <a href="{% url 'weather' %}" class="{% if request.resolver_match.url_name == 'weather' or request.resolver_match.url_name == 'weather_table' or request.resolver_match.url_name == 'weather_project_detail' %}active{% endif %}">
+          <span class="nav-icon">&#9728;</span> Weather
+        </a>
+        {% if user|user_role == 'manager' %}
+        <a href="{% url 'project_list' %}" class="{% if request.resolver_match.url_name == 'project_list' or request.resolver_match.url_name == 'project_create' %}active{% endif %}">
+          <span class="nav-icon">&#128230;</span> Projects
+        </a>
+        {% endif %}
+        <a href="{% url 'time_entry_list' %}" class="{% if request.resolver_match.url_name == 'time_entry_list' or request.resolver_match.url_name == 'time_entry_edit' %}active{% endif %}">
+          <span class="nav-icon">&#128336;</span> Timesheets
         </a>
         {% if user|user_role == 'manager' %}
         <a href="{% url 'work_item_deleted_list' %}" class="{% if request.resolver_match.url_name == 'work_item_deleted_list' %}active{% endif %}">
           <span class="nav-icon">&#128465;</span> Recently Deleted
         </a>
-        {% endif %}
-        {% if user|user_role == 'manager' %}
-        <a href="{% url 'project_list' %}" class="{% if request.resolver_match.url_name == 'project_list' or request.resolver_match.url_name == 'project_create' %}active{% endif %}">
-          <span class="nav-icon">&#128230;</span> Projects
-        </a>
         <a href="{% url 'activity_list' %}" class="{% if request.resolver_match.url_name == 'activity_list' %}active{% endif %}">
           <span class="nav-icon">&#128203;</span> Edit History
         </a>
         {% endif %}
-        <a href="{% url 'whiteboard' %}" class="{% if request.resolver_match.url_name == 'whiteboard' or request.resolver_match.url_name == 'whiteboard_board' %}active{% endif %}">
-          <span class="nav-icon">&#128396;</span> Whiteboard
-        </a>
-        <a href="{% url 'weather' %}" class="{% if request.resolver_match.url_name == 'weather' or request.resolver_match.url_name == 'weather_table' or request.resolver_match.url_name == 'weather_project_detail' %}active{% endif %}">
-          <span class="nav-icon">&#9728;</span> Weather
-        </a>
-        <a href="{% url 'time_entry_list' %}" class="{% if request.resolver_match.url_name == 'time_entry_list' or request.resolver_match.url_name == 'time_entry_edit' %}active{% endif %}">
-          <span class="nav-icon">&#128336;</span> Timesheets
-        </a>
-        <a href="{% url 'schedule_email_builder' %}" class="{% if request.resolver_match.url_name == 'schedule_email_builder' %}active{% endif %}">
-          <span class="nav-icon">&#9993;</span> Schedule Update Email
-        </a>
       </nav>
       <a href="{% url 'profile' %}" class="sidebar-user" style="text-decoration: none; color: inherit;">
         <div class="sidebar-user-avatar">{{ user.username|slice:":2"|upper }}</div>

@@ -62,9 +62,9 @@
     taskName: ['task name', 'name', 'task', 'activity', 'title'],
     start: ['start', 'start date', 'planned start', 'start date'],
     finish: ['finish', 'finish date', 'planned finish', 'finish date'],
-    status: ['status'],
-    actualStart: ['actual start', 'actual start date', 'start (actual)'],
-    actualFinish: ['actual finish', 'actual finish date', 'finish (actual)'],
+    status: ['status', 'status_field', 'task status'],
+    actualStart: ['actual start', 'actual start date', 'start (actual)', 'actual_start'],
+    actualFinish: ['actual finish', 'actual finish date', 'finish (actual)', 'actual_finish'],
     baselineStart: ['baseline start', 'baseline start date'],
     baselineFinish: ['baseline finish', 'baseline finish date'],
     baseline5Start: ['baseline5 start', 'baseline 5 start'],
@@ -75,6 +75,10 @@
     wbs: ['wbs', 'outline number', 'outline number'],
     outlineLevel: ['outline level', 'level'],
     resourceNames: ['resource names', 'resources', 'resource'],
+    summary: ['summary', 'summary task', 'is summary', 'summary?'],
+    milestone: ['milestone', 'milestone?', 'is milestone', 'milestones'],
+    taskType: ['task type', 'task_type', 'work type', 'type'],
+    completedBy: ['completed by', 'completed_by', 'scheduler', 'scheduler name', 'completed by user'],
   };
   var TEXT_FIELDS = [];
   for (var t = 1; t <= 30; t++) TEXT_FIELDS.push('text' + t);
@@ -108,6 +112,8 @@
     if (!s || typeof s !== 'string') return null;
     s = s.trim();
     if (!s) return null;
+    var rest = s.replace(/^(?:mon|tue|wed|thu|fri|sat|sun)\s+/i, '').trim();
+    if (rest) s = rest;
     var d;
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
       d = new Date(s + 'T12:00:00');
@@ -129,6 +135,21 @@
     var m = (d.getMonth() + 1);
     var day = d.getDate();
     return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function formatShortDate(d) {
+    if (!d) return '';
+    if (typeof d === 'string') {
+      var s = d.trim().replace(/^(?:mon|tue|wed|thu|fri|sat|sun)\s+/i, '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        var parts = s.split('-');
+        return parseInt(parts[1], 10) + '/' + parseInt(parts[2], 10) + '/' + (parts[0].slice(2));
+      }
+      if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s)) return s.length <= 8 ? s : s.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/, function (_, m, d, y) { return m + '/' + d + '/' + y.slice(2); });
+      return s;
+    }
+    var m = d.getMonth() + 1, day = d.getDate(), y = d.getFullYear() % 100;
+    return m + '/' + day + '/' + (y < 10 ? '0' : '') + y;
   }
 
   function dateDays(a, b) {
@@ -201,14 +222,18 @@
   }
 
   function isMilestone(row, mapping) {
+    var mv = (getVal(row, mapping, 'milestone') || '').toString().trim().toLowerCase();
+    if (/^(yes|true|1|x)$/.test(mv)) return true;
     var dur = getVal(row, mapping, 'duration');
     if (dur !== '' && parseFloat(dur) === 0) return true;
-    var name = getVal(row, mapping, 'taskName').toLowerCase();
+    var name = (getVal(row, mapping, 'taskName') || '').toLowerCase();
     if (name.indexOf('milestone') !== -1) return true;
     return false;
   }
 
   function isSummary(row, mapping) {
+    var sv = getVal(row, mapping, 'summary').toLowerCase();
+    if (sv && /^(yes|true|1)$/.test(sv)) return true;
     var level = getNum(row, mapping, 'outlineLevel');
     if (level !== null && level <= 1) return true;
     var wbs = getVal(row, mapping, 'wbs');
@@ -280,9 +305,63 @@
     };
   }
 
+  function isConstructionBoundary(name) {
+    var n = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (/pre.?construction/i.test(n)) return false;
+    if (/post.?construction/i.test(n)) return false;
+    return /^construction(\s|$)/i.test(n) || n === 'construction';
+  }
+
+  function isPostConstructionBoundary(name) {
+    var n = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    return /^post.?construction/i.test(n);
+  }
+
+  function inferPhaseMap(rows, mapping) {
+    var constructionStart = null;
+    var constructionEnd = null;
+    var parentSummary = [];
+
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!isSummary(row, mapping)) continue;
+      var name = getVal(row, mapping, 'taskName');
+      if (constructionStart === null && isConstructionBoundary(name)) {
+        constructionStart = i;
+      } else if (constructionStart !== null && constructionEnd === null && isPostConstructionBoundary(name)) {
+        constructionEnd = i;
+      }
+    }
+    if (constructionEnd === null && constructionStart !== null) constructionEnd = rows.length;
+
+    var currentSubPhase = '';
+    for (var i = 0; i < rows.length; i++) {
+      var phase;
+      if (constructionStart !== null && i >= constructionStart && i < constructionEnd) {
+        phase = 'construction';
+        if (isSummary(rows[i], mapping)) {
+          var sn = getVal(rows[i], mapping, 'taskName');
+          if (!isConstructionBoundary(sn)) currentSubPhase = sn;
+        }
+      } else {
+        phase = 'preconstructionPost';
+        currentSubPhase = '';
+      }
+      parentSummary.push({ phase: phase, subPhase: currentSubPhase });
+    }
+    return parentSummary;
+  }
+
   function needsUpdate(flags) {
     return flags.shouldHaveStarted || flags.missingProgress || flags.progressDeltaBehind ||
       flags.progressDeltaAhead || flags.shouldBeFinished;
+  }
+
+  function isCompletedByStatus(statusStr) {
+    if (!statusStr || typeof statusStr !== 'string') return false;
+    var lower = statusStr.trim().toLowerCase();
+    return lower === 'complete' || lower === 'completed' || lower === 'done' ||
+      lower === 'finished' || lower === 'closed';
   }
 
   function filterTasksNeedingUpdate(rows, mapping, statusDate, options) {
@@ -295,12 +374,16 @@
       var row = rows[i];
       if (!includeMilestones && isMilestone(row, mapping)) continue;
       if (!includeSummary && isSummary(row, mapping)) continue;
+      var actualFinishDate = parseDate(getVal(row, mapping, 'actualFinish'));
+      if (actualFinishDate) continue;
+      if (isCompletedByStatus(getVal(row, mapping, 'status'))) continue;
       var flags = getFlags(row, mapping, statusDate, useBaseline, threshold);
       if (!needsUpdate(flags)) continue;
       var groupValue = '';
       if (options.groupBy) groupValue = getVal(row, mapping, options.groupBy);
       result.push({
         row: row,
+        rowIndex: i,
         mapping: mapping,
         flags: flags,
         groupValue: groupValue,
@@ -315,6 +398,8 @@
         baseline5Start: getVal(row, mapping, 'baseline5Start'),
         baseline5Finish: getVal(row, mapping, 'baseline5Finish'),
         totalSlack: getVal(row, mapping, 'totalSlack'),
+        taskType: getVal(row, mapping, 'taskType'),
+        completedBy: getVal(row, mapping, 'completedBy'),
         expectedState: flags.expectedState,
         expectedPct: flags.expectedPct,
         reportedPct: flags.reportedPct,
@@ -327,65 +412,74 @@
     var f = task.flags;
     var plannedStartStr = task.plannedStartStr || '';
     var plannedFinishStr = task.plannedFinishStr || '';
+    var hasActualStart = !!f.actualStart;
+    var isOneDayTask = f.plannedStart && f.plannedFinish &&
+      dateToYMD(f.plannedStart) === dateToYMD(f.plannedFinish);
+
+    if (hasActualStart) {
+      if (f.shouldBeFinished)
+        return 'Complete? If yes, what was the actual finish date? If not, current % and forecast finish?';
+      return 'Current % complete? Still on track for ' + plannedFinishStr + '?';
+    }
+
     if (f.shouldHaveStarted)
-      return 'This was scheduled to start on ' + plannedStartStr + '. Has it started? If yes, what\'s the actual start date and current % complete? If not, when do you anticipate starting?';
+      return 'Started yet? If yes, actual start and % complete. If not, when will it start and what will be the new start and finish dates?';
     if (f.shouldBeFinished)
-      return 'This was scheduled to finish on ' + plannedFinishStr + '. Is it complete? If yes, what\'s the actual finish date (and confirm 100%)? If not, what % is complete and what\'s the forecast finish?';
-    if (f.missingProgress)
-      return 'Can you confirm current % complete as of ' + statusDateStr + ' and any notes impacting finish?';
-    if (f.progressDeltaBehind)
-      return 'We expected ~' + (f.expectedPct != null ? f.expectedPct : '?') + '% complete by ' + statusDateStr + ', but the schedule shows ' + (f.reportedPct != null ? f.reportedPct : '?') + '%. Is progress behind, or is % complete not updated? Please provide current % and any impacts.';
-    if (f.progressDeltaAhead)
-      return 'We expected ~' + (f.expectedPct != null ? f.expectedPct : '?') + '% complete by ' + statusDateStr + '; the schedule shows ' + (f.reportedPct != null ? f.reportedPct : '?') + '%. Are we ahead, or is % complete overstated? Please confirm.';
-    return 'Please confirm status and % complete as of ' + statusDateStr + '.';
+      return 'Complete? If yes, what was the actual finish date? If not, current % and forecast finish?';
+    if (f.missingProgress || f.progressDeltaBehind || f.progressDeltaAhead)
+      return 'Current % complete? Still on track for ' + plannedFinishStr + '?';
+    return 'Quick confirm: status and % complete as of ' + statusDateStr + '.';
+  }
+
+  function renderTaskBlock(lines, t, statusDateStr, index) {
+    var label = t.taskName;
+    if (t.constructionSubPhase) label = t.constructionSubPhase + ' – ' + label;
+    if (t.taskType) label = label + ' (' + t.taskType + ')';
+    var plannedStart = formatShortDate(t.flags.plannedStart) || t.start;
+    var plannedFinish = formatShortDate(t.flags.plannedFinish) || t.finish;
+    var actualStr = (t.actualStart || t.actualFinish) ? ((t.actualStart || 'None') + '-' + (t.actualFinish || 'None')) : 'None-None';
+    var part = (index != null ? index + '. ' : '') + label + ': Planned ' + plannedStart + '-' + plannedFinish + '; Actual ' + actualStr + '. ' + generateQuestion(t, statusDateStr);
+    if (t.completedBy) part += ' (Completed by: ' + t.completedBy + ')';
+    lines.push(part);
   }
 
   function formatEmailBody(needsUpdateList, statusDateStr, deadline, groupBy) {
     var lines = [];
     lines.push('Team,');
     lines.push('');
-    lines.push('As of the status date ' + statusDateStr + ', please provide updates for the activities below so we can finalize this week\'s schedule update.');
-    lines.push('For each item, reply with actual start/finish and current % complete (or confirm no change).');
-    lines.push('Please respond by ' + (deadline || 'by EOD tomorrow') + '.');
+    lines.push('Please provide a status update on the following tasks. PMs & PEs please see 1st section. Superintendents & PMs please see 2nd section. Please provide actual start/finish & % complete (or confirm no change). Please reply by ' + (deadline || 'EOD tomorrow') + '.');
     lines.push('');
 
     if (needsUpdateList.length === 0) {
-      lines.push('No activities require updates for this status date.');
+      lines.push('Nothing needs an update for this date.');
       return lines.join('\n');
     }
 
-    var groups = {};
-    if (groupBy) {
-      needsUpdateList.forEach(function (t) {
-        var g = t.groupValue || '(No group)';
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(t);
-      });
-    } else {
-      groups[''] = needsUpdateList;
+    var hasPhase = needsUpdateList.some(function (t) { return t.phaseCategory === 'construction'; });
+
+    if (!hasPhase) {
+      needsUpdateList.forEach(function (t, i) { renderTaskBlock(lines, t, statusDateStr, i + 1); });
+      lines.push('Thank you,');
+      lines.push('Scheduling & Data Analytics');
+      return lines.join('\n');
     }
 
-    var groupKeys = groupBy ? Object.keys(groups).sort() : [''];
-    groupKeys.forEach(function (gkey) {
-      var list = groups[gkey];
-      if (groupBy && gkey) lines.push('### ' + gkey);
-      list.forEach(function (t) {
-        lines.push('---');
-        lines.push('Task: ' + t.taskName);
-        if (t.status) lines.push('Status: ' + t.status);
-        lines.push('Start / Finish: ' + t.start + ' / ' + t.finish);
-        if (t.actualStart || t.actualFinish) lines.push('Actual Start / Finish: ' + (t.actualStart || '') + ' / ' + (t.actualFinish || ''));
-        if (t.baselineStart || t.baselineFinish) lines.push('Baseline: ' + (t.baselineStart || '') + ' / ' + (t.baselineFinish || ''));
-        if (t.baseline5Start || t.baseline5Finish) lines.push('Baseline5: ' + (t.baseline5Start || '') + ' / ' + (t.baseline5Finish || ''));
-        if (t.totalSlack !== '') lines.push('Total Slack: ' + t.totalSlack);
-        lines.push('Expected: ' + t.expectedState + (t.expectedPct != null ? ' ~' + t.expectedPct + '%' : ''));
-        if (t.reportedPct != null) lines.push('Reported %: ' + t.reportedPct);
-        var q = generateQuestion(t, statusDateStr);
-        lines.push('Question: ' + q + (t.flags.slackHint ? ' ' + t.flags.slackHint : ''));
-        lines.push('');
-      });
-    });
+    var prePost = needsUpdateList.filter(function (t) { return t.phaseCategory !== 'construction'; });
+    var construction = needsUpdateList.filter(function (t) { return t.phaseCategory === 'construction'; });
 
+    if (prePost.length > 0) {
+      lines.push('Preconstruction & post');
+      prePost.forEach(function (t, i) { renderTaskBlock(lines, t, statusDateStr, i + 1); });
+    }
+
+    if (construction.length > 0) {
+      if (prePost.length > 0) lines.push('');
+      lines.push('Construction');
+      construction.forEach(function (t, i) { renderTaskBlock(lines, t, statusDateStr, i + 1); });
+    }
+
+    lines.push('Thank you,');
+    lines.push('Scheduling & Data Analytics');
     return lines.join('\n');
   }
 
@@ -396,12 +490,18 @@
     return s;
   }
 
+  function phaseCategoryLabel(t) {
+    if (t.phaseCategory === 'construction') return 'Construction';
+    return 'Preconstruction & Post Construction';
+  }
+
   function exportNeedsUpdateCSV(needsUpdateList, statusDateStr) {
-    var headers = ['Task Name', 'Status', 'Start', 'Finish', 'Actual Start', 'Actual Finish', 'Baseline Start', 'Baseline Finish', 'Baseline5 Start', 'Baseline5 Finish', 'Total Slack', 'Expected State', 'Expected %', 'Reported %', 'Question'];
+    var headers = ['Task Name', 'Phase', 'Status', 'Start', 'Finish', 'Actual Start', 'Actual Finish', 'Baseline Start', 'Baseline Finish', 'Baseline5 Start', 'Baseline5 Finish', 'Total Slack', 'Expected State', 'Expected %', 'Reported %', 'Question'];
     var rows = needsUpdateList.map(function (t) {
       var q = generateQuestion(t, statusDateStr);
       return [
         t.taskName,
+        phaseCategoryLabel(t),
         t.status,
         t.start,
         t.finish,
@@ -512,9 +612,13 @@
     });
 
     var list = filterTasksNeedingUpdate(state.rawRows, state.mapping, statusDate, options);
+    var phaseMap = inferPhaseMap(state.rawRows, state.mapping);
     list.forEach(function (t) {
       t.plannedStartStr = t.flags.plannedStart ? dateToYMD(t.flags.plannedStart) : '';
       t.plannedFinishStr = t.flags.plannedFinish ? dateToYMD(t.flags.plannedFinish) : '';
+      var pm = phaseMap[t.rowIndex];
+      t.phaseCategory = pm ? pm.phase : 'preconstructionPost';
+      t.constructionSubPhase = pm ? pm.subPhase : '';
     });
     state.needsUpdateList = list;
     state.statusDateStr = statusDateStr;
@@ -623,7 +727,10 @@
         section.style.display = 'none';
       }
       populateGroupBy(mapping);
-      clearSession(true);
+      var out = document.getElementById('schedule-email-output');
+      var card = document.getElementById('schedule-email-output-card');
+      if (out) out.value = '';
+      if (card) card.style.display = 'none';
     };
     reader.readAsText(file, 'UTF-8');
   }

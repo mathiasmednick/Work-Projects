@@ -88,7 +88,7 @@
       <tbody>
         {% for item in active_work_items %}
         <tr>
-          <td><span class="priority-dot project-dot"></span>{{ item.project.name }}</td>
+          <td><span class="priority-dot project-dot"></span>{% if item.project %}{{ item.project.name }}{% else %}—{% endif %}</td>
           <td><a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a></td>
           <td>{% if item.assigned_to %}<div class="assignee-cell"><span class="sidebar-user-avatar assignee-avatar">{{ item.assigned_to.username|slice:":2"|upper }}</span><span class="assignee-name">{{ item.assigned_to.get_full_name|default:item.assigned_to.username }}</span></div>{% else %}—{% endif %}</td>
           <td>

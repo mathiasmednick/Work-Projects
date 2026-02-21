@@ -15,7 +15,9 @@ python manage.py seed_scheduler    # sample data: manager/devpass, scheduler1/de
 ## Run
 
 ```bash
-python manage.py runserver
+python manage.py migrate
+python manage.py collectstatic --noinput
+python manage.py runserver 0.0.0.0:8000
 ```
 
 Open http://127.0.0.1:8000/ and log in. Managers see Dashboard and Projects; schedulers see My Work and Time.

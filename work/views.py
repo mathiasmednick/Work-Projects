@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from django.db.models import F
+from django.db.models import F, Case, When, Value, IntegerField
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
@@ -10,7 +10,7 @@ from core.mixins import SchedulerOrManagerMixin, ManagerRequiredMixin, user_is_m
 from core.audit import log_action
 from core.models import AuditLog
 from time_tracking.models import TimeEntry
-from .models import WorkItem
+from .models import WorkItem, UpdateRequest
 from .forms import WorkItemForm, CompleteTaskTimeForm
 
 DELETED_RETENTION_DAYS = 30
@@ -64,7 +64,9 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
             qs = qs.filter(meeting_at__date=today)
 
         # Advanced filters
-        if GET.get('project'):
+        if GET.get('project') == 'none':
+            qs = qs.filter(project__isnull=True)
+        elif GET.get('project'):
             qs = qs.filter(project_id=GET.get('project'))
         if GET.get('project_manager'):
             qs = qs.filter(project__project_manager_id=GET.get('project_manager'))
@@ -315,18 +317,45 @@ class WorkItemCompleteView(SchedulerOrManagerMixin, View):
             hours=form.cleaned_data['hours'],
             description=form.cleaned_data.get('notes') or '',
         )
+        if work_item.work_type == WorkItem.WORK_TYPE_UPDATE_REQUEST:
+            from datetime import datetime, time as dt_time
+            date_worked = form.cleaned_data['date_worked']
+            sent_at = timezone.make_aware(datetime.combine(date_worked, dt_time(17, 0)))
+            due_at = sent_at + timedelta(hours=24)
+            ur = UpdateRequest.objects.create(
+                title=work_item.title,
+                project=work_item.project,
+                target_users=work_item.requested_by or '',
+                message=work_item.notes or '',
+                due_at=due_at,
+                source_work_item=work_item,
+                created_by=request.user,
+            )
+            UpdateRequest.objects.filter(pk=ur.pk).update(sent_at=sent_at)
+            messages.success(request, 'Task completed, time logged, and update request created.')
+            return redirect('update_request_list')
         messages.success(request, 'Task completed and time logged.')
         return redirect('my_work')
 
 
 def work_recommend(request):
-    """Scheduler recommendation: top open/in-progress items by due date and priority."""
+    """Scheduler recommendation: top open/in-progress items by due date (soonest/overdue first) then priority (High > Medium > Low)."""
     if not request.user.is_authenticated:
         return JsonResponse({'recommendations': []}, status=200)
+    priority_order = Case(
+        When(priority=WorkItem.PRIORITY_HIGH, then=Value(0)),
+        When(priority=WorkItem.PRIORITY_MEDIUM, then=Value(1)),
+        When(priority=WorkItem.PRIORITY_LOW, then=Value(2)),
+        default=Value(1),
+        output_field=IntegerField(),
+    )
     qs = WorkItem.objects.filter(
         assigned_to=request.user,
         status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
-    ).order_by(F('due_date').asc(nulls_last=True), 'priority')[:10]
+    ).annotate(priority_sort=priority_order).order_by(
+        F('due_date').asc(nulls_last=True),
+        'priority_sort',
+    )[:10]
     recommendations = [
         {
             'title': item.title,
@@ -357,3 +386,68 @@ class WorkItemRestoreView(SchedulerOrManagerMixin, View):
         log_action(request.user, 'workitem', item.pk, item.title, AuditLog.ACTION_RESTORE)
         messages.success(request, f'Task "{item.title}" restored.')
         return redirect('work_item_detail', pk=item.pk)
+
+
+class UpdateRequestListView(SchedulerOrManagerMixin, View):
+    """Update Requests page with bucket tabs."""
+
+    def get(self, request):
+        qs = UpdateRequest.objects.select_related(
+            'project', 'source_work_item', 'follow_up_work_item', 'created_by',
+        ).all()
+        assignee = request.GET.get('assignee', '').strip()
+        if assignee:
+            qs = qs.filter(target_users__icontains=assignee)
+        now = timezone.now()
+        buckets = {
+            'awaiting_reply': [], 'follow_up': [],
+            'no_response': [], 'archived': [],
+        }
+        for ur in qs:
+            buckets[ur.status_bucket].append(ur)
+        active_tab = request.GET.get('tab', 'awaiting_reply')
+        if active_tab not in buckets:
+            active_tab = 'awaiting_reply'
+        return render(request, 'work/update_requests.html', {
+            'buckets': buckets,
+            'active_tab': active_tab,
+            'filter_assignee': assignee,
+            'now': now,
+        })
+
+
+class UpdateRequestMarkRepliedView(SchedulerOrManagerMixin, View):
+    """POST: confirm reply on an update request."""
+
+    def post(self, request, pk):
+        ur = get_object_or_404(UpdateRequest, pk=pk)
+        outcome = request.POST.get('outcome', '')
+        if outcome not in ('all_answered', 'needs_follow_up'):
+            messages.error(request, 'Invalid outcome.')
+            return redirect('update_request_list')
+
+        ur.reply_confirmed_at = timezone.now()
+        ur.reply_outcome = outcome
+        ur.save(update_fields=['reply_confirmed_at', 'reply_outcome'])
+
+        if outcome == 'needs_follow_up':
+            tomorrow = (date.today() + timedelta(days=1))
+            follow_up = WorkItem.objects.create(
+                project=ur.project,
+                title=f'Follow up: {ur.title}',
+                work_type=WorkItem.WORK_TYPE_OTHER,
+                task_type_other='Follow-up from update request',
+                priority=WorkItem.PRIORITY_MEDIUM,
+                due_date=tomorrow,
+                status=WorkItem.STATUS_OPEN,
+                assigned_to=ur.created_by,
+                requested_by=ur.target_users,
+                notes=f'Follow-up for Update Request #{ur.pk}: {ur.title}\n\nOriginal message:\n{ur.message}',
+            )
+            ur.follow_up_work_item = follow_up
+            ur.save(update_fields=['follow_up_work_item'])
+            messages.success(request, f'Follow-up task created: "{follow_up.title}"')
+        else:
+            messages.success(request, f'Update request "{ur.title}" archived.')
+
+        return redirect('update_request_list')

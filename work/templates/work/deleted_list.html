@@ -31,7 +31,7 @@
     {% for item in deleted_items %}
     <tr>
       <td>{{ item.title }}</td>
-      <td>{{ item.project.project_number }} – {{ item.project.name }}</td>
+      <td>{% if item.project %}{{ item.project.project_number }} – {{ item.project.name }}{% else %}—{% endif %}</td>
       <td>{{ item.deleted_at|date:"M j, Y H:i" }}</td>
       <td>{{ item.deleted_by.get_full_name|default:item.deleted_by.username|default:"—" }}</td>
       <td>{{ item.days_until_purge }}</td>

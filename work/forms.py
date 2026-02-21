@@ -39,7 +39,17 @@ class WorkItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['task_type_other'].required = False
+        self.fields['task_type_other'].help_text = 'Optional. Only used when Task type is "Other".'
+        self.fields['project'].required = False
+        self.fields['project'].help_text = 'Optional. Leave blank for non-project tasks.'
         self.fields['project'].queryset = Project.objects.order_by('project_number')
+        self.fields['title'].help_text = 'Required.'
+        self.fields['work_type'].help_text = 'Required. Select a type or "Other".'
+        self.fields['due_date'].help_text = 'Optional.'
+        self.fields['meeting_at'].help_text = 'Optional.'
+        self.fields['assigned_to'].help_text = 'Optional.'
+        self.fields['requested_by'].help_text = 'Optional.'
+        self.fields['notes'].help_text = 'Optional.'
         self.fields['project'].label_from_instance = lambda obj: f"{obj.project_number} — {obj.name}"
         self.fields['assigned_to'].queryset = User.objects.filter(username__in=['Mathias', 'scheduler1']).order_by('username')
         self.fields['due_date'].widget = forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
@@ -48,8 +58,3 @@ class WorkItemForm(forms.ModelForm):
         for name in self.fields:
             self.fields[name].widget.attrs.setdefault('class', 'form-control')
 
-    def clean(self):
-        data = super().clean()
-        if data.get('work_type') == WorkItem.WORK_TYPE_OTHER and not (data.get('task_type_other') or '').strip():
-            self.add_error('task_type_other', 'Please specify the task type when selecting "Other".')
-        return data

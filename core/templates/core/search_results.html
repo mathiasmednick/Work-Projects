@@ -34,7 +34,7 @@
     {% if tasks %}
     <ul style="list-style: none; padding: 0;">
       {% for t in tasks %}
-      <li style="padding: 0.35rem 0;"><a href="{% url 'work_item_detail' t.pk %}">{{ t.title }}</a> – {{ t.project.project_number }}</li>
+      <li style="padding: 0.35rem 0;"><a href="{% url 'work_item_detail' t.pk %}">{{ t.title }}</a>{% if t.project %} – {{ t.project.project_number }}{% endif %}</li>
       {% endfor %}
     </ul>
     {% else %}

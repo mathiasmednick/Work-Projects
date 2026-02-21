@@ -142,6 +142,7 @@ class WhiteboardItem(models.Model):
     content = models.TextField(blank=True)
     color = models.CharField(max_length=30, blank=True)
     shape = models.CharField(max_length=20, blank=True, default='')
+    text_style = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -170,6 +171,7 @@ class WhiteboardLink(models.Model):
         related_name='incoming_links',
     )
     style = models.CharField(max_length=20, choices=STYLE_CHOICES, default=STYLE_ARROW)
+    label = models.CharField(max_length=200, blank=True, default='')
 
     class Meta:
         db_table = 'core_whiteboardlink'

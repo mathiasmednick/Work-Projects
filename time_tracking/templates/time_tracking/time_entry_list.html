@@ -56,7 +56,7 @@
     {% for e in entries %}
     <tr{% if e.date == today %} style="background: #f0f9ff;"{% endif %}>
       <td>{{ e.date|date:"D, M j" }}</td>
-      <td>{{ e.project.name }}</td>
+      <td>{% if e.project %}{{ e.project.name }}{% else %}—{% endif %}</td>
       <td>{% if e.work_code %}{{ e.get_work_code_display }}{% else %}<span class="badge badge-status-open">General</span>{% endif %}</td>
       <td>{{ e.description|truncatewords:8|default:"—" }}</td>
       <td><span class="badge badge-status-done">Logged</span></td>

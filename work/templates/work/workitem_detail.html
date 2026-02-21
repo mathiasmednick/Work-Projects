@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{ work_item.title }}</h1>
-    <p class="page-subtitle">{{ work_item.project.project_number }} – {{ work_item.project.name }}</p>
+    <p class="page-subtitle">{% if work_item.project %}{{ work_item.project.project_number }} – {{ work_item.project.name }}{% else %}No project{% endif %}</p>
   </div>
   <div class="page-header-actions">
     {% if work_item.status != 'done' %}
@@ -22,17 +22,18 @@
 {% block content %}
 <div class="card">
   <table class="data-table">
-    <tr><th>Project</th><td><a href="{% url 'project_detail' work_item.project_id %}">{{ work_item.project.project_number }} – {{ work_item.project.name }}</a></td></tr>
+    <tr><th>Project</th><td>{% if work_item.project %}<a href="{% url 'project_detail' work_item.project_id %}">{{ work_item.project.project_number }} – {{ work_item.project.name }}</a>{% else %}—{% endif %}</td></tr>
     <tr><th>Task type</th><td>{{ work_item.get_display_work_type }}</td></tr>
     <tr><th>Priority</th><td>{{ work_item.get_priority_display }}</td></tr>
     <tr><th>Due date</th><td>{{ work_item.due_date|default:"—" }}</td></tr>
     <tr><th>Meeting time</th><td>{% if work_item.meeting_at %}{{ work_item.meeting_at|date:"M j, Y" }} at {{ work_item.meeting_at|time:"g:i A" }}{% else %}—{% endif %}</td></tr>
     <tr><th>Status</th><td>{{ work_item.get_status_display }}</td></tr>
-    <tr><th>Assigned to</th><td>{{ work_item.assigned_to.get_full_name|default:work_item.assigned_to.username|default:"—" }}</td></tr>
+    <tr><th>Assigned to</th><td>{% if work_item.assigned_to %}{{ work_item.assigned_to.get_full_name|default:work_item.assigned_to.username }}{% else %}—{% endif %}</td></tr>
     <tr><th>Requested by</th><td>{{ work_item.requested_by|default:"—" }}</td></tr>
     {% if work_item.notes %}<tr><th>Notes</th><td>{{ work_item.notes }}</td></tr>{% endif %}
     <tr><th>Created</th><td>{{ work_item.created_at }}</td></tr>
     <tr><th>Updated</th><td>{{ work_item.updated_at }}{% if work_item.updated_by %} by {{ work_item.updated_by.get_full_name|default:work_item.updated_by.username }}{% endif %}</td></tr>
+    {% if work_item.status == 'done' and work_item.updated_by %}<tr><th>Completed by</th><td>{{ work_item.updated_by.get_full_name|default:work_item.updated_by.username }}</td></tr>{% endif %}
   </table>
 </div>
 {% endblock %}

@@ -169,7 +169,7 @@ class TimesheetSummaryView(SchedulerOrManagerMixin, View):
             groups[key]['hours'] += float(e.hours)
 
         summary = [{'project': v['project'], 'task_type': v['task_type'], 'hours': v['hours']} for v in groups.values()]
-        summary.sort(key=lambda x: (x['project'].project_number, x['task_type']))
+        summary.sort(key=lambda x: (x['project'].project_number if x['project'] else '', x['task_type']))
 
         return render(request, 'time_tracking/timesheet_summary.html', {
             'week_start': start,
@@ -212,7 +212,7 @@ class TimeEntryCSVExportView(SchedulerOrManagerMixin, View):
             'task_id', 'task_name', 'task_type', 'hours', 'notes',
         ])
         for e in entries:
-            pm = e.project.project_manager
+            pm = e.project.project_manager if e.project else None
             pm_name = (pm.get_full_name() or pm.username) if pm else ''
             task_type = e.work_item.get_display_work_type() if e.work_item else ''
             task_id = e.work_item_id or ''
@@ -220,8 +220,8 @@ class TimeEntryCSVExportView(SchedulerOrManagerMixin, View):
             w.writerow([
                 e.date.isoformat(),
                 target_user.username,
-                e.project.project_number,
-                e.project.name,
+                e.project.project_number if e.project else '',
+                e.project.name if e.project else '',
                 pm_name,
                 task_id,
                 task_name,

@@ -43,7 +43,7 @@
     <tbody>
       {% for row in summary %}
       <tr>
-        <td>{{ row.project.project_number }} – {{ row.project.name }}</td>
+        <td>{% if row.project %}{{ row.project.project_number }} – {{ row.project.name }}{% else %}—{% endif %}</td>
         <td>{{ row.task_type }}</td>
         <td>{{ row.hours|floatformat:1 }}</td>
       </tr>
