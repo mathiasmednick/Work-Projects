@@ -1,0 +1,57 @@
+{% load tz %}
+{% if list %}
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Project</th>
+        <th>Responsible</th>
+        <th>Sent</th>
+        <th>Due</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ur in list %}
+      <tr>
+        <td><strong>{{ ur.title }}</strong>{% if ur.message %}<br><small style="color:#6c757d;">{{ ur.message|truncatewords:15 }}</small>{% endif %}</td>
+        <td>{% if ur.project %}{{ ur.project.project_number }} &mdash; {{ ur.project.name|truncatewords:4 }}{% else %}&mdash;{% endif %}</td>
+        <td>{{ ur.target_users|default:"&mdash;" }}</td>
+        <td style="white-space:nowrap;">{{ ur.sent_at|date:"M j, Y g:i A" }}</td>
+        <td style="white-space:nowrap;">{{ ur.due_at|date:"M j, Y g:i A" }}</td>
+        <td>
+          {% if ur.reply_confirmed_at %}
+            {% if ur.reply_outcome == 'all_answered' %}
+              <span class="ur-time-badge ok">Archived</span>
+            {% elif ur.reply_outcome == 'needs_follow_up' %}
+              <span class="ur-time-badge warning">Follow-up created</span>
+            {% endif %}
+          {% elif ur.is_overdue %}
+            <span class="ur-time-badge overdue">Overdue</span>
+          {% else %}
+            <span class="ur-time-badge ok">On time</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          {% if not ur.reply_confirmed_at %}
+          <button type="button" class="btn btn-primary" style="font-size:0.78rem;padding:4px 10px;" onclick="openReplyModal({{ ur.pk }})">Mark Replied</button>
+          {% endif %}
+          {% if ur.source_work_item %}
+          <a href="{% url 'work_item_detail' pk=ur.source_work_item_id %}" class="btn btn-secondary" style="font-size:0.78rem;padding:4px 10px;">Source Task</a>
+          {% endif %}
+          {% if ur.follow_up_work_item %}
+          <a href="{% url 'work_item_detail' pk=ur.follow_up_work_item_id %}" class="btn btn-secondary" style="font-size:0.78rem;padding:4px 10px;">Follow-up Task</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:2rem;color:#6c757d;">
+  No update requests in this category.
+</div>
+{% endif %}

@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Complete task & log time</h1>
-    <p class="page-subtitle">{{ work_item.title }} — {{ work_item.project.project_number }}</p>
+    <p class="page-subtitle">{{ work_item.title }}{% if work_item.project %} — {{ work_item.project.project_number }}{% endif %}</p>
   </div>
   <div class="page-header-actions">
     <a href="{% url 'work_item_detail' work_item.pk %}" class="btn btn-secondary">Cancel</a>

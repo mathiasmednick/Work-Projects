@@ -12,7 +12,7 @@
 
 {% block content %}
 <div class="card">
-  <p>Delete entry: {{ entry.date }} – {{ entry.project.name }} – {{ entry.hours }}h?</p>
+  <p>Delete entry: {{ entry.date }} – {% if entry.project %}{{ entry.project.name }}{% else %}No project{% endif %} – {{ entry.hours }}h?</p>
   <form method="post" class="form-actions" style="margin-top: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary" style="background: var(--status-danger); border-color: var(--status-danger);">Delete</button>

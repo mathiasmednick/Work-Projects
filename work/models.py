@@ -33,12 +33,14 @@ class WorkItem(models.Model):
     WORK_TYPE_UPDATE = 'schedule_update'
     WORK_TYPE_UPDATE_REVIEW = 'schedule_update_review'
     WORK_TYPE_CLAIM = 'claim_analysis'
+    WORK_TYPE_UPDATE_REQUEST = 'update_request'
     WORK_TYPE_OTHER = 'other'
     WORK_TYPE_CHOICES = [
         (WORK_TYPE_BASELINE, 'Baseline schedule review'),
         (WORK_TYPE_UPDATE, 'Schedule update'),
         (WORK_TYPE_UPDATE_REVIEW, 'Schedule update review'),
         (WORK_TYPE_CLAIM, 'Claim analysis'),
+        (WORK_TYPE_UPDATE_REQUEST, 'Update request'),
         (WORK_TYPE_OTHER, 'Other'),
     ]
 
@@ -46,6 +48,8 @@ class WorkItem(models.Model):
         'projects.Project',
         on_delete=models.CASCADE,
         related_name='work_items',
+        null=True,
+        blank=True,
     )
     title = models.CharField(max_length=300)
     work_type = models.CharField(max_length=50, choices=WORK_TYPE_CHOICES, default=WORK_TYPE_UPDATE)
@@ -108,3 +112,67 @@ class WorkItem(models.Model):
             return 0
         delta = timezone.now() - self.deleted_at
         return max(0, 30 - delta.days)
+
+
+class UpdateRequest(models.Model):
+    """An update request sent to a team member, awaiting their reply."""
+    OUTCOME_ALL_ANSWERED = 'all_answered'
+    OUTCOME_NEEDS_FOLLOW_UP = 'needs_follow_up'
+    OUTCOME_CHOICES = [
+        (OUTCOME_ALL_ANSWERED, 'All answered'),
+        (OUTCOME_NEEDS_FOLLOW_UP, 'Needs follow-up'),
+    ]
+
+    title = models.CharField(max_length=300)
+    project = models.ForeignKey(
+        'projects.Project', on_delete=models.CASCADE,
+        related_name='update_requests', null=True, blank=True,
+    )
+    target_users = models.CharField(
+        max_length=500, blank=True,
+        help_text='Who needs to reply (names or roles)',
+    )
+    message = models.TextField(blank=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    due_at = models.DateTimeField()
+    reply_confirmed_at = models.DateTimeField(null=True, blank=True)
+    reply_outcome = models.CharField(
+        max_length=30, blank=True, choices=OUTCOME_CHOICES,
+    )
+    source_work_item = models.ForeignKey(
+        WorkItem, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='spawned_update_requests',
+    )
+    follow_up_work_item = models.ForeignKey(
+        WorkItem, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='from_update_request',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
+
+    class Meta:
+        db_table = 'work_updaterequest'
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def status_bucket(self):
+        """Derive bucket from timestamps — no cron needed."""
+        if self.reply_confirmed_at:
+            return 'archived'
+        from django.utils import timezone
+        elapsed = (timezone.now() - self.sent_at).total_seconds()
+        if elapsed > 48 * 3600:
+            return 'no_response'
+        if elapsed > 24 * 3600:
+            return 'follow_up'
+        return 'awaiting_reply'
+
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+        return not self.reply_confirmed_at and timezone.now() > self.due_at

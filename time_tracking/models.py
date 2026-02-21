@@ -23,6 +23,8 @@ class TimeEntry(models.Model):
         'projects.Project',
         on_delete=models.CASCADE,
         related_name='time_entries',
+        null=True,
+        blank=True,
     )
     work_item = models.ForeignKey(
         'work.WorkItem',
@@ -42,11 +44,11 @@ class TimeEntry(models.Model):
         verbose_name_plural = 'Time entries'
 
     def __str__(self):
-        return f"{self.user.username} - {self.project.name} - {self.date}: {self.hours}h"
+        return f"{self.user.username} - {(self.project.name if self.project else 'No project')} - {self.date}: {self.hours}h"
 
     def clean(self):
         super().clean()
-        if self.work_item_id and self.project_id and self.work_item.project_id != self.project_id:
+        if self.work_item_id and self.work_item.project_id is not None and self.project_id is not None and self.work_item.project_id != self.project_id:
             raise ValidationError(
                 {'work_item': 'Work item must belong to the selected project.'}
             )

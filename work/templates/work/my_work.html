@@ -42,7 +42,7 @@
     {% for item in my_priorities %}
     <li style="padding: 0.35rem 0; border-bottom: 1px solid var(--border-color);">
       <a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a>
-      – {{ item.project.project_number }}
+      {% if item.project %}– {{ item.project.project_number }}{% endif %}
       {% if item.due_date %}{% if item.due_date < today %}<span style="color: var(--status-danger);">Overdue {{ item.due_date }}</span>{% else %}Due {{ item.due_date }}{% endif %}{% endif %}
       {% if item.priority == 'high' %}<span class="badge badge-status-overdue">{{ item.get_priority_display }}</span>{% endif %}
     </li>
@@ -60,6 +60,7 @@
     <input type="search" name="q" class="form-control search-input" placeholder="Task or project..." value="{{ filter_q }}" style="min-width: 180px;">
     <select name="project" class="form-control" style="width: auto;">
       <option value="">All Projects</option>
+      <option value="none" {% if filter_project == "none" %}selected{% endif %}>No project</option>
       {% for p in projects %}<option value="{{ p.pk }}" {% if filter_project == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.project_number }}</option>{% endfor %}
     </select>
     {% if is_manager %}
@@ -106,6 +107,7 @@
       <th><input type="checkbox" disabled></th>
       <th>TASK TITLE</th>
       <th>PROJECT</th>
+      <th>TASK TYPE</th>
       <th>DUE DATE</th>
       <th>PRIORITY</th>
       <th>STATUS</th>
@@ -117,7 +119,8 @@
     <tr>
       <td><input type="checkbox"></td>
       <td><a href="{% url 'work_item_detail' item.pk %}">{{ item.title }}</a></td>
-      <td><a href="{% url 'project_detail' item.project_id %}">{{ item.project.project_number }}</a> – {{ item.project.name }}</td>
+      <td>{% if item.project %}<a href="{% url 'project_detail' item.project_id %}">{{ item.project.project_number }}</a> – {{ item.project.name }}{% else %}—{% endif %}</td>
+      <td>{{ item.get_display_work_type }}</td>
       <td>
         {% if item.due_date %}
           {% if item.due_date < today %}<span style="color: var(--status-danger);">▲ {{ item.due_date }}</span>

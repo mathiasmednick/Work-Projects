@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Update Requests{% endblock %}
+
+{% block page_header %}
+<style>
+.ur-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.ur-modal-backdrop.open { display: flex; }
+.ur-modal { background: #fff; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.18); padding: 1.5rem; width: 420px; max-width: 90vw; }
+.ur-modal h3 { margin: 0 0 1rem; font-size: 1rem; }
+.ur-modal-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.ur-modal-btn { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid #dee2e6; border-radius: 8px; background: #fff; cursor: pointer; text-align: left; transition: background 0.15s, border-color 0.15s; }
+.ur-modal-btn:hover { background: #f8f9fa; border-color: #0d6efd; }
+.ur-modal-btn .ur-icon { font-size: 1.2rem; flex-shrink: 0; }
+.ur-modal-btn .ur-label { font-weight: 500; font-size: 0.9rem; }
+.ur-modal-btn .ur-desc { font-size: 0.78rem; color: #6c757d; }
+.ur-modal-close { margin-top: 0.75rem; text-align: right; }
+.ur-modal-close button { border: none; background: none; color: #6c757d; cursor: pointer; font-size: 0.85rem; }
+.ur-time-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+.ur-time-badge.overdue { background: #fee2e2; color: #991b1b; }
+.ur-time-badge.ok { background: #dcfce7; color: #166534; }
+.ur-time-badge.warning { background: #fef3c7; color: #92400e; }
+.ur-filter-bar { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+</style>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Update Requests</h1>
+    <p class="page-subtitle">Track sent update requests and their reply status</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'work_item_create' %}" class="btn btn-primary">+ New Work Item</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="ur-filter-bar">
+  <form method="get" style="display:flex;gap:0.5rem;align-items:center;">
+    <input type="hidden" name="tab" value="{{ active_tab }}">
+    <input type="text" name="assignee" class="form-control" placeholder="Filter by assignee..." value="{{ filter_assignee }}" style="width:200px;">
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    {% if filter_assignee %}
+    <a href="{% url 'update_request_list' %}?tab={{ active_tab }}" class="btn btn-secondary">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="tabs" style="margin-bottom:1rem;">
+  <a href="?tab=awaiting_reply{% if filter_assignee %}&assignee={{ filter_assignee }}{% endif %}" class="{% if active_tab == 'awaiting_reply' %}active{% endif %}">
+    Awaiting Reply <span class="badge" style="margin-left:4px;">{{ buckets.awaiting_reply|length }}</span>
+  </a>
+  <a href="?tab=follow_up{% if filter_assignee %}&assignee={{ filter_assignee }}{% endif %}" class="{% if active_tab == 'follow_up' %}active{% endif %}">
+    Follow Up <span class="badge" style="margin-left:4px;">{{ buckets.follow_up|length }}</span>
+  </a>
+  <a href="?tab=no_response{% if filter_assignee %}&assignee={{ filter_assignee }}{% endif %}" class="{% if active_tab == 'no_response' %}active{% endif %}">
+    No Response <span class="badge" style="margin-left:4px;">{{ buckets.no_response|length }}</span>
+  </a>
+  <a href="?tab=archived{% if filter_assignee %}&assignee={{ filter_assignee }}{% endif %}" class="{% if active_tab == 'archived' %}active{% endif %}">
+    Archived <span class="badge" style="margin-left:4px;">{{ buckets.archived|length }}</span>
+  </a>
+</div>
+
+{% with items=buckets %}
+{% if active_tab == 'awaiting_reply' %}{% with list=items.awaiting_reply %}{% include "work/_ur_table.html" %}{% endwith %}
+{% elif active_tab == 'follow_up' %}{% with list=items.follow_up %}{% include "work/_ur_table.html" %}{% endwith %}
+{% elif active_tab == 'no_response' %}{% with list=items.no_response %}{% include "work/_ur_table.html" %}{% endwith %}
+{% elif active_tab == 'archived' %}{% with list=items.archived %}{% include "work/_ur_table.html" %}{% endwith %}
+{% endif %}
+{% endwith %}
+
+<!-- Mark Replied Modal -->
+<div class="ur-modal-backdrop" id="ur-modal">
+  <div class="ur-modal">
+    <h3>Confirm Reply Received</h3>
+    <form method="post" id="ur-modal-form" action="">
+      {% csrf_token %}
+      <div class="ur-modal-actions">
+        <button type="submit" name="outcome" value="all_answered" class="ur-modal-btn">
+          <span class="ur-icon">&#10004;</span>
+          <div>
+            <div class="ur-label">Yes &mdash; all answers provided</div>
+            <div class="ur-desc">Archive this request. No further action needed.</div>
+          </div>
+        </button>
+        <button type="submit" name="outcome" value="needs_follow_up" class="ur-modal-btn">
+          <span class="ur-icon">&#8635;</span>
+          <div>
+            <div class="ur-label">Yes &mdash; but still have follow-up questions</div>
+            <div class="ur-desc">Creates a new schedule task to follow up.</div>
+          </div>
+        </button>
+      </div>
+      <div class="ur-modal-close">
+        <button type="button" onclick="document.getElementById('ur-modal').classList.remove('open');">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openReplyModal(pk) {
+  var modal = document.getElementById('ur-modal');
+  var form = document.getElementById('ur-modal-form');
+  form.action = '{% url "update_request_mark_replied" pk=0 %}'.replace('/0/', '/' + pk + '/');
+  modal.classList.add('open');
+}
+document.getElementById('ur-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+</script>
+{% endblock %}
