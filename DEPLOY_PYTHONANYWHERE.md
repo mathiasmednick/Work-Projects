@@ -9,6 +9,16 @@ This app is set up to run on PythonAnywhere's free tier using **SQLite** (no MyS
 - SQLite database at `/home/<username>/gc_scheduler/db.sqlite3`
 - Python 3.10 (or the version offered on the Web tab)
 
+## Data safety
+
+The database file `db.sqlite3` is **not** tracked by Git (it is listed in `.gitignore`). This means:
+
+- **Normal redeploy** (`git pull` → `migrate` → `collectstatic` → Reload) **does not** replace or wipe the live database. It only updates code files and applies new migrations to the existing DB.
+- **DO NOT** copy your local `db.sqlite3` to the server, run `manage.py flush`, run `manage.py seed_scheduler` on the live site (it resets data), or delete/overwrite the server's `db.sqlite3`. Any of these would destroy live data.
+- **Migrations are safe.** Running `python manage.py migrate --noinput` only adds new tables/columns; it never drops existing data.
+
+**Bottom line:** Push code to GitHub, pull on PythonAnywhere, run migrate + collectstatic, click Reload. Your data stays exactly as it was.
+
 ## Steps
 
 ### 1. Upload code
@@ -112,6 +122,8 @@ python manage.py collectstatic --noinput
 ```
 
 Then click **Reload** for your web app on the **Web** tab.
+
+> **Your live database (`db.sqlite3`) is not in the repo.** The steps above do not replace it — only new migrations are applied to the existing DB. All your data stays intact.
 
 ### Post-deploy verification
 
