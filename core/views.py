@@ -279,7 +279,7 @@ def _schedule_email_builder_csp():
     return (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "font-src 'self' data:; "
         "connect-src 'none'; "
