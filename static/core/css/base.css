@@ -67,6 +67,7 @@ a:hover {
   min-height: 100vh;
 }
 
+/* Sidebar: overflow + safe-area required so RBA logo is never cut off (left/top). Do not remove. */
 .sidebar {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
@@ -79,8 +80,12 @@ a:hover {
   left: 0;
   height: 100vh;
   z-index: 100;
+  overflow: hidden;
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0));
+  padding-left: env(safe-area-inset-left, 0);
 }
 
+/* Brand row: overflow hidden + min-width 0 required for logo containment. Do not remove. */
 .sidebar-brand {
   padding: 1.25rem 1.5rem;
   font-weight: 700;
@@ -88,6 +93,13 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-brand span {
+  min-width: 0;
 }
 
 .sidebar-brand-icon {
@@ -102,13 +114,17 @@ a:hover {
   color: white;
 }
 
+/* RBA logo: fixed size + containment. Do not remove or logo can be cut off / overflow. */
 .sidebar-brand-logo {
   width: 32px;
   height: 32px;
   max-width: 32px;
   max-height: 32px;
+  min-width: 0;
   object-fit: contain;
+  object-position: center;
   flex-shrink: 0;
+  display: block;
 }
 
 .sidebar-nav {
