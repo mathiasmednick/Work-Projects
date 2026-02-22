@@ -104,8 +104,13 @@ SQLite is stored in the project folder; no separate database server is needed. T
 
 ## Security notes for production
 
-- Set `DEBUG = False` and a strong `SECRET_KEY` (e.g. from environment variables).
-- Add your PythonAnywhere host to `ALLOWED_HOSTS`, e.g. `['<username>.pythonanywhere.com']`.
+- **Environment variables (required):** The app reads `DJANGO_DEBUG` and `DJANGO_SECRET_KEY` from the environment. On PythonAnywhere, set these before the app loads:
+  - **Option A (recommended):** In the **Web** tab, under your app, find **Code** → **Environment variables** (or the equivalent). Add:
+    - `DJANGO_DEBUG` = `False`
+    - `DJANGO_SECRET_KEY` = a long random string (e.g. from `python -c "import secrets; print(secrets.token_urlsafe(50))"`). Never commit this value.
+  - **Option B:** In your WSGI file, add near the top (before `get_wsgi_application`):  
+    `os.environ['DJANGO_DEBUG'] = 'False'` and `os.environ['DJANGO_SECRET_KEY'] = 'your-secret-key-here'`.
+- Add your PythonAnywhere host to `ALLOWED_HOSTS` (already set for `mathiasmednick.pythonanywhere.com`).
 - Use HTTPS (PythonAnywhere provides it for your domain).
 
 ## Redeploy (after code changes)
@@ -138,6 +143,15 @@ After every deploy, check these items before moving on:
 5. **Nested page check**: Navigate to at least one nested URL (e.g. Weather or Whiteboard) and confirm CSS still loads correctly.
 
 If styles break after a deploy, the fix is almost always: run `collectstatic --noinput` again + Reload on the Web tab.
+
+### Production readiness checklist
+
+Before considering the site fully deployed:
+
+1. **Environment:** `DJANGO_DEBUG=False` and `DJANGO_SECRET_KEY` are set (see Security notes). Reload the web app after setting them.
+2. **No debug pages:** Trigger a 404 (e.g. visit a non-existent URL) and confirm a generic error page is shown, not a Django debug stack trace.
+3. **Login and roles:** Log in as manager and as scheduler; confirm dashboard, tasks, and timesheets behave correctly.
+4. **Time entries:** As manager, select the scheduler in Timesheets, then delete or edit a scheduler time entry; confirm the confirm page loads and that after delete/edit you return to the scheduler's list. As scheduler, delete your own entry and confirm it works.
 
 ## Free tier limits
 

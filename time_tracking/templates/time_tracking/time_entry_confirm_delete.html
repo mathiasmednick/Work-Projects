@@ -16,7 +16,7 @@
   <form method="post" class="form-actions" style="margin-top: 1rem;">
     {% csrf_token %}
     <button type="submit" class="btn btn-primary" style="background: var(--status-danger); border-color: var(--status-danger);">Delete</button>
-    <a href="{% url 'time_entry_list' %}" class="btn btn-secondary">Cancel</a>
+    <a href="{% url 'time_entry_list' %}{% if timesheet_user_param %}?user={{ timesheet_user_param }}{% endif %}" class="btn btn-secondary">Cancel</a>
   </form>
 </div>
 {% endblock %}
