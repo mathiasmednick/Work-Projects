@@ -79,6 +79,7 @@
     milestone: ['milestone', 'milestone?', 'is milestone', 'milestones'],
     taskType: ['task type', 'task_type', 'work type', 'type'],
     completedBy: ['completed by', 'completed_by', 'scheduler', 'scheduler name', 'completed by user'],
+    active: ['active', 'is active', 'activity active', 'active?'],
   };
   var TEXT_FIELDS = [];
   for (var t = 1; t <= 30; t++) TEXT_FIELDS.push('text' + t);
@@ -374,6 +375,10 @@
       var row = rows[i];
       if (!includeMilestones && isMilestone(row, mapping)) continue;
       if (!includeSummary && isSummary(row, mapping)) continue;
+      if (mapping.active) {
+        var activeVal = (getVal(row, mapping, 'active') || '').toString().trim().toLowerCase();
+        if (activeVal === 'no') continue;
+      }
       var actualFinishDate = parseDate(getVal(row, mapping, 'actualFinish'));
       if (actualFinishDate) continue;
       if (isCompletedByStatus(getVal(row, mapping, 'status'))) continue;
