@@ -79,6 +79,7 @@ a:hover {
   left: 0;
   height: 100vh;
   z-index: 100;
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0));
 }
 
 .sidebar-brand {
@@ -88,6 +89,12 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-brand span {
+  min-width: 0;
 }
 
 .sidebar-brand-icon {
