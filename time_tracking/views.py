@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.views import View
 from django.views.generic import UpdateView, DeleteView
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model
@@ -25,8 +25,9 @@ def week_range(ref_date):
 
 
 class TimeEntryListView(SchedulerOrManagerMixin, View):
-    """Quick add form + weekly list of time entries. Schedulers see only their own."""
+    """Quick add form + weekly list of time entries. Schedulers see only their own; manager can filter by user."""
     def get(self, request):
+        target_user = _timesheet_user(request)
         week_str = request.GET.get('week_start') or request.GET.get('week')  # YYYY-MM-DD (Monday)
         if week_str:
             try:
@@ -37,7 +38,7 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
             ref = date.today()
         start, end = week_range(ref)
 
-        qs = TimeEntry.objects.filter(user=request.user).filter(
+        qs = TimeEntry.objects.filter(user=target_user).filter(
             date__gte=start,
             date__lte=end,
         ).select_related('project', 'work_item').order_by('date', 'id')
@@ -58,6 +59,9 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
         next_week = start + timedelta(days=7)
         week_total_hours = qs.aggregate(t=Sum('hours'))['t'] or 0
 
+        is_manager = user_is_manager(request.user)
+        users = _timesheet_users_for_manager() if is_manager else []
+
         return render(request, 'time_tracking/time_entry_list.html', {
             'form': form,
             'entries': qs,
@@ -67,6 +71,9 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
             'next_week': next_week,
             'week_total_hours': week_total_hours,
             'today': date.today(),
+            'target_user': target_user,
+            'is_manager': is_manager,
+            'users': users,
         })
 
     def post(self, request):
@@ -76,18 +83,26 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
             entry.user = request.user
             entry.save()
             messages.success(request, 'Time entry added.')
-            return redirect('time_entry_list')
+            user_param = request.GET.get('user')
+            if user_is_manager(request.user) and user_param:
+                url = reverse('time_entry_list') + '?user=' + user_param
+            else:
+                url = reverse('time_entry_list')
+            return redirect(url)
         try:
             from datetime import datetime
             ref = datetime.strptime(request.POST.get('date', ''), '%Y-%m-%d').date()
         except (ValueError, TypeError):
             ref = date.today()
         start, end = week_range(ref)
-        qs = TimeEntry.objects.filter(user=request.user).filter(
+        target_user = _timesheet_user(request)
+        qs = TimeEntry.objects.filter(user=target_user).filter(
             date__gte=start,
             date__lte=end,
         ).select_related('project', 'work_item').order_by('date', 'id')
         week_total_hours = qs.aggregate(t=Sum('hours'))['t'] or 0
+        is_manager = user_is_manager(request.user)
+        users = _timesheet_users_for_manager() if is_manager else []
         return render(request, 'time_tracking/time_entry_list.html', {
             'form': form,
             'entries': qs,
@@ -97,6 +112,9 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
             'next_week': start + timedelta(days=7),
             'week_total_hours': week_total_hours,
             'today': date.today(),
+            'target_user': target_user,
+            'is_manager': is_manager,
+            'users': users,
         })
 
 
@@ -136,6 +154,11 @@ def _timesheet_user(request):
         if user_id:
             return User.objects.filter(pk=user_id).first() or request.user
     return request.user
+
+
+def _timesheet_users_for_manager():
+    """Stable list of users for manager timesheet filter (always includes Mathias and scheduler1)."""
+    return User.objects.filter(username__in=['Mathias', 'scheduler1']).order_by('username')
 
 
 class TimesheetSummaryView(SchedulerOrManagerMixin, View):
@@ -178,7 +201,7 @@ class TimesheetSummaryView(SchedulerOrManagerMixin, View):
             'total_hours': sum(s['hours'] for s in summary),
             'target_user': target_user,
             'is_manager': user_is_manager(request.user),
-            'users': User.objects.filter(time_entries__isnull=False).distinct().order_by('username') if user_is_manager(request.user) else [],
+            'users': _timesheet_users_for_manager() if user_is_manager(request.user) else [],
             'prev_week': start - timedelta(days=7),
             'next_week': start + timedelta(days=7),
         })

@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from django.db.models import F, Q, Case, When, Value, IntegerField
+from django.db.models import F, Q, Case, When, Value, IntegerField, Count
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
@@ -10,6 +10,7 @@ from core.mixins import SchedulerOrManagerMixin, ManagerRequiredMixin, user_is_m
 from core.audit import log_action
 from core.models import AuditLog
 from time_tracking.models import TimeEntry
+from projects.models import Project
 from .models import WorkItem, UpdateRequest
 from .forms import WorkItemForm, CompleteTaskTimeForm
 
@@ -46,9 +47,17 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
     def get_queryset(self):
         from django.contrib.auth import get_user_model
         from projects.models import Project
+        User = get_user_model()
         GET = self.request.GET
         qs = self._base_queryset()
         today = date.today()
+
+        # Manager: "scheduler's tasks" = assigned to scheduler OR created by scheduler (incl. unassigned)
+        is_manager = getattr(getattr(self.request.user, 'profile', None), 'role', None) == 'manager'
+        if is_manager and GET.get('scheduler_tasks') == '1':
+            scheduler_user = User.objects.filter(username='scheduler1').first()
+            if scheduler_user:
+                qs = qs.filter(Q(assigned_to=scheduler_user) | Q(created_by=scheduler_user))
 
         # Tab filters
         if GET.get('overdue') == '1':
@@ -72,7 +81,7 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
             qs = qs.filter(project_id=GET.get('project'))
         if GET.get('project_manager'):
             qs = qs.filter(project__project_manager_id=GET.get('project_manager'))
-        if GET.get('assigned_to'):
+        if GET.get('assigned_to') and GET.get('scheduler_tasks') != '1':
             qs = qs.filter(assigned_to_id=GET.get('assigned_to'))
         if GET.get('work_type'):
             qs = qs.filter(work_type=GET.get('work_type'))
@@ -157,6 +166,8 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
         ctx['projects'] = Project.objects.all().order_by('project_number')
         ctx['project_managers'] = User.objects.filter(managed_projects__isnull=False).distinct().order_by('username')
         ctx['assignees'] = User.objects.filter(username__in=['Mathias', 'scheduler1']).order_by('username')
+        ctx['scheduler_user'] = User.objects.filter(username='scheduler1').first()
+        ctx['filter_scheduler_tasks'] = GET.get('scheduler_tasks') == '1'
         ctx['work_type_choices'] = WorkItem.WORK_TYPE_CHOICES
         ctx['sort_options'] = SORT_FIELDS
         # My Priorities: overdue, due soon, or high priority
@@ -343,33 +354,119 @@ class WorkItemCompleteView(SchedulerOrManagerMixin, View):
         return redirect('my_work')
 
 
-def work_recommend(request):
-    """Scheduler recommendation: top open/in-progress items by due date (soonest/overdue first) then priority (High > Medium > Low)."""
-    if not request.user.is_authenticated:
-        return JsonResponse({'recommendations': []}, status=200)
-    priority_order = Case(
-        When(priority=WorkItem.PRIORITY_HIGH, then=Value(0)),
-        When(priority=WorkItem.PRIORITY_MEDIUM, then=Value(1)),
-        When(priority=WorkItem.PRIORITY_LOW, then=Value(2)),
-        default=Value(1),
-        output_field=IntegerField(),
+def _work_recommend_base_queryset(request):
+    """Same visibility as My Work list: managers see all; schedulers see assigned_to or created_by."""
+    if getattr(getattr(request.user, 'profile', None), 'role', None) == 'manager':
+        return WorkItem.objects.all()
+    return WorkItem.objects.filter(
+        Q(assigned_to=request.user) | Q(created_by=request.user)
     )
-    qs = WorkItem.objects.filter(
-        assigned_to=request.user,
-        status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
-    ).annotate(priority_sort=priority_order).order_by(
-        F('due_date').asc(nulls_last=True),
-        'priority_sort',
-    )[:10]
-    recommendations = [
-        {
-            'title': item.title,
-            'due_date': str(item.due_date) if item.due_date else '',
-            'priority': item.get_priority_display(),
-        }
-        for item in qs
-    ]
-    return JsonResponse({'recommendations': recommendations})
+
+
+def work_recommend(request):
+    """Answer questions about tasks and projects: top tasks by due date/priority, or projects that need attention (by open task count)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'answer': '', 'recommendations': []}, status=200)
+
+    message = (request.POST.get('message') or request.GET.get('message') or '').strip().lower()
+    today = date.today()
+    base_qs = _work_recommend_base_queryset(request)
+
+    # Project-priority intent: "what project is a priority", "which projects", "project priority", etc.
+    ask_projects = (
+        'project' in message
+        and any(
+            w in message
+            for w in ('priority', 'first', 'which', 'attention', 'focus', 'important', 'list')
+        )
+    )
+    ask_overdue = 'overdue' in message
+    ask_due_soon = 'due soon' in message or 'upcoming' in message
+    ask_completed = any(
+        w in message for w in ('complete', 'completed', 'done', 'finished')
+    ) or 'what has been' in message
+
+    if ask_projects:
+        # Projects with open/in-progress tasks visible to this user (assigned_to or created_by).
+        open_filter = (
+            (Q(work_items__assigned_to=request.user) | Q(work_items__created_by=request.user))
+            & Q(work_items__status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS))
+            & Q(work_items__deleted_at__isnull=True)
+        )
+        projects_qs = (
+            Project.objects.filter(open_filter)
+            .annotate(open_count=Count('work_items', filter=open_filter))
+            .distinct()
+            .order_by('-open_count', 'project_number')[:10]
+        )
+        recommendations = [
+            {
+                'title': f"{p.project_number} – {p.name}",
+                'due_date': '',
+                'priority': f'{p.open_count} open task{"s" if p.open_count != 1 else ""}',
+            }
+            for p in projects_qs
+        ]
+        answer = 'Here are projects that need your attention (by number of open tasks):' if recommendations else 'You have no open tasks on any project right now.'
+    elif ask_overdue:
+        qs = base_qs.filter(
+            status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+            due_date__lt=today,
+        ).order_by(F('due_date').asc(nulls_last=True))[:15]
+        recommendations = [
+            {'title': item.title, 'due_date': str(item.due_date) if item.due_date else '', 'priority': item.get_priority_display()}
+            for item in qs
+        ]
+        answer = 'Here are your overdue tasks:' if recommendations else 'You have no overdue tasks.'
+    elif ask_due_soon:
+        soon_end = today + timedelta(days=7)
+        qs = base_qs.filter(
+            status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+            due_date__gte=today,
+            due_date__lte=soon_end,
+        ).order_by('due_date')[:15]
+        recommendations = [
+            {'title': item.title, 'due_date': str(item.due_date) if item.due_date else '', 'priority': item.get_priority_display()}
+            for item in qs
+        ]
+        answer = 'Here are tasks due in the next 7 days:' if recommendations else 'No tasks due in the next 7 days.'
+    elif ask_completed:
+        qs = base_qs.filter(status=WorkItem.STATUS_DONE).order_by('-updated_at')[:15]
+        recommendations = [
+            {
+                'title': item.title,
+                'due_date': str(item.due_date) if item.due_date else '',
+                'priority': item.get_priority_display(),
+            }
+            for item in qs
+        ]
+        answer = "Here's what's been completed:" if recommendations else 'No completed tasks yet.'
+    else:
+        # Default: top tasks by due date and priority.
+        priority_order = Case(
+            When(priority=WorkItem.PRIORITY_HIGH, then=Value(0)),
+            When(priority=WorkItem.PRIORITY_MEDIUM, then=Value(1)),
+            When(priority=WorkItem.PRIORITY_LOW, then=Value(2)),
+            default=Value(1),
+            output_field=IntegerField(),
+        )
+        qs = base_qs.filter(
+            status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
+        ).annotate(priority_sort=priority_order).order_by(
+            F('due_date').asc(nulls_last=True),
+            'priority_sort',
+        )[:10]
+        recommendations = [
+            {
+                'title': item.title,
+                'due_date': str(item.due_date) if item.due_date else '',
+                'priority': item.get_priority_display(),
+            }
+            for item in qs
+        ]
+        answer = 'Here are your top tasks by due date and priority:' if recommendations else 'No open or in-progress tasks. Create one to get started.'
+
+    return JsonResponse({'answer': answer, 'recommendations': recommendations})
 
 
 class WorkItemRestoreView(SchedulerOrManagerMixin, View):

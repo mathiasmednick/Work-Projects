@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Weekly Time Entry</h1>
-    <p class="page-subtitle">Log your hours for the current pay period.</p>
+    <p class="page-subtitle">Log your hours for the current pay period.{% if target_user != user %} Viewing: {{ target_user.get_full_name|default:target_user.username }}{% endif %}</p>
   </div>
   <div class="page-header-actions">
     <div class="week-total-box">
@@ -18,22 +18,31 @@
 {% endblock %}
 
 {% block content %}
+{% if is_manager and users %}
+<form method="get" style="margin-bottom: 1rem;">
+  <label>User: <select name="user" class="form-control" style="width: auto;" onchange="this.form.submit()">
+    <option value="">—</option>
+    {% for u in users %}<option value="{{ u.pk }}" {% if target_user == u %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+  </select></label>
+  <input type="hidden" name="week_start" value="{{ week_start|date:'Y-m-d' }}">
+</form>
+{% endif %}
 <div class="week-nav" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-  <a class="btn btn-secondary" href="?week_start={{ prev_week|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}">Previous Week</a>
+  <a class="btn btn-secondary" href="?week_start={{ prev_week|date:'Y-m-d' }}{% if target_user != user %}&user={{ target_user.pk }}{% endif %}">Previous Week</a>
   <span class="week-range">{{ week_start|date:"M j" }} – {{ week_end|date:"M j, Y" }}</span>
-  <a class="btn btn-secondary" href="?week_start={{ next_week|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}">Next Week</a>
+  <a class="btn btn-secondary" href="?week_start={{ next_week|date:'Y-m-d' }}{% if target_user != user %}&user={{ target_user.pk }}{% endif %}">Next Week</a>
   <form method="get" style="display: inline-flex; gap: 0.35rem; align-items: center;">
     <label for="id_week_pick">Week of</label>
     <input id="id_week_pick" type="date" name="week_start" class="form-control" value="{{ week_start|date:'Y-m-d' }}">
-    {% if request.GET.user %}<input type="hidden" name="user" value="{{ request.GET.user }}">{% endif %}
+    {% if target_user != user %}<input type="hidden" name="user" value="{{ target_user.pk }}">{% endif %}
     <button type="submit" class="btn btn-secondary">Go</button>
   </form>
 </div>
 
 <div class="table-toolbar">
   <input type="search" class="form-control search-input" placeholder="Search entries..." style="max-width: 220px;">
-  <a href="{% url 'timesheet_summary' %}?week_start={{ week_start|date:'Y-m-d' }}" class="btn btn-secondary">Summary</a>
-  <a href="{% url 'time_entry_export_csv' %}?from={{ week_start|date:'Y-m-d' }}&to={{ week_end|date:'Y-m-d' }}{% if request.GET.user %}&user={{ request.GET.user }}{% endif %}" class="btn-csv-export">
+  <a href="{% url 'timesheet_summary' %}?week_start={{ week_start|date:'Y-m-d' }}{% if target_user != user %}&user={{ target_user.pk }}{% endif %}" class="btn btn-secondary">Summary</a>
+  <a href="{% url 'time_entry_export_csv' %}?from={{ week_start|date:'Y-m-d' }}&to={{ week_end|date:'Y-m-d' }}{% if target_user != user %}&user={{ target_user.pk }}{% endif %}" class="btn-csv-export">
       <span class="btn-csv-circle" aria-hidden="true">&#8595;</span>
       <span class="btn-csv-title">Export CSV</span>
     </a>
