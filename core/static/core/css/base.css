@@ -114,8 +114,10 @@ a:hover {
   height: 32px;
   max-width: 32px;
   max-height: 32px;
+  min-width: 0;
   object-fit: contain;
   flex-shrink: 0;
+  display: block;
 }
 
 .sidebar-nav {
