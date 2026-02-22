@@ -76,6 +76,13 @@ class WorkItem(models.Model):
         blank=True,
         related_name='updated_work_items',
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_work_items',
+    )
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

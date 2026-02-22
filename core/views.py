@@ -134,7 +134,7 @@ class SearchView(SchedulerOrManagerMixin, View):
                 Q(title__icontains=q) | (Q(pk=int(q)) if q.isdigit() else Q(pk=-1))
             )
             if not is_mgr:
-                task_qs = task_qs.filter(assigned_to=request.user)
+                task_qs = task_qs.filter(Q(assigned_to=request.user) | Q(created_by=request.user))
             tasks = list(task_qs.order_by('-due_date')[:15])
         return render(request, 'core/search_results.html', {
             'query': q,

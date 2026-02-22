@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from django.db.models import F, Case, When, Value, IntegerField
+from django.db.models import F, Q, Case, When, Value, IntegerField
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
@@ -39,7 +39,9 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
     def _base_queryset(self):
         if getattr(self.request.user, 'profile', None) and self.request.user.profile.role == 'manager':
             return WorkItem.objects.all().select_related('project', 'assigned_to', 'project__project_manager')
-        return WorkItem.objects.filter(assigned_to=self.request.user).select_related('project')
+        return WorkItem.objects.filter(
+            Q(assigned_to=self.request.user) | Q(created_by=self.request.user)
+        ).select_related('project', 'assigned_to', 'created_by')
 
     def get_queryset(self):
         from django.contrib.auth import get_user_model
@@ -174,10 +176,12 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
 
 
 def _work_item_queryset(request):
-    """Queryset for task detail/edit/delete: manager sees all non-deleted, scheduler sees only assigned."""
+    """Queryset for task detail/edit/delete: manager sees all; scheduler sees assigned-to-me or created-by-me."""
     if getattr(request.user, 'profile', None) and request.user.profile.role == 'manager':
         return WorkItem.objects.all().select_related('project', 'assigned_to', 'updated_by')
-    return WorkItem.objects.filter(assigned_to=request.user).select_related('project', 'assigned_to', 'updated_by')
+    return WorkItem.objects.filter(
+        Q(assigned_to=request.user) | Q(created_by=request.user)
+    ).select_related('project', 'assigned_to', 'updated_by', 'created_by')
 
 
 class WorkItemCreateView(SchedulerOrManagerMixin, CreateView):
@@ -191,6 +195,7 @@ class WorkItemCreateView(SchedulerOrManagerMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
+        form.instance.created_by = self.request.user
         form.instance._audit_user = self.request.user
         messages.success(self.request, 'Task created.')
         response = super().form_valid(form)
