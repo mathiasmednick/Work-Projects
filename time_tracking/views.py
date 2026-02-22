@@ -118,6 +118,13 @@ class TimeEntryListView(SchedulerOrManagerMixin, View):
         })
 
 
+def _time_entry_queryset_for_request(request):
+    """Entries the current user may view/edit/delete: scheduler only own; manager may view allowed users."""
+    if user_is_manager(request.user):
+        return TimeEntry.objects.filter(user__in=_timesheet_users_for_manager())
+    return TimeEntry.objects.filter(user=request.user)
+
+
 class TimeEntryUpdateView(SchedulerOrManagerMixin, UpdateView):
     model = TimeEntry
     form_class = TimeEntryForm
@@ -126,7 +133,14 @@ class TimeEntryUpdateView(SchedulerOrManagerMixin, UpdateView):
     context_object_name = 'entry'
 
     def get_queryset(self):
-        return TimeEntry.objects.filter(user=self.request.user)
+        return _time_entry_queryset_for_request(self.request)
+
+    def get_success_url(self):
+        url = reverse('time_entry_list')
+        user_param = self.request.GET.get('user')
+        if user_param:
+            url += '?user=' + user_param
+        return url
 
     def form_valid(self, form):
         messages.success(self.request, 'Time entry updated.')
@@ -140,7 +154,19 @@ class TimeEntryDeleteView(SchedulerOrManagerMixin, DeleteView):
     context_object_name = 'entry'
 
     def get_queryset(self):
-        return TimeEntry.objects.filter(user=self.request.user)
+        return _time_entry_queryset_for_request(self.request)
+
+    def get_success_url(self):
+        url = reverse('time_entry_list')
+        user_param = self.request.GET.get('user')
+        if user_param:
+            url += '?user=' + user_param
+        return url
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['timesheet_user_param'] = self.request.GET.get('user')
+        return ctx
 
     def form_valid(self, form):
         messages.success(self.request, 'Time entry deleted.')

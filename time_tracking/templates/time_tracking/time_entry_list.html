@@ -71,8 +71,8 @@
       <td><span class="badge badge-status-done">Logged</span></td>
       <td class="num">{{ e.hours }}</td>
       <td>
-        <a href="{% url 'time_entry_edit' e.pk %}" title="Edit">&#9998;</a>
-        <a href="{% url 'time_entry_delete' e.pk %}" title="Delete">&#128465;</a>
+        <a href="{% url 'time_entry_edit' e.pk %}{% if target_user != user %}?user={{ target_user.pk }}{% endif %}" title="Edit">&#9998;</a>
+        <a href="{% url 'time_entry_delete' e.pk %}{% if target_user != user %}?user={{ target_user.pk }}{% endif %}" title="Delete">&#128465;</a>
       </td>
     </tr>
     {% endfor %}
