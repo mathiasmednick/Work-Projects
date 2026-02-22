@@ -1,0 +1,18 @@
+---
+description: RBA logo in sidebar – keep CSS containment and safe-area; do not remove or logo will be cut off
+globs: **/base.css,**/base*.css,**/templates/base.html
+alwaysApply: false
+---
+
+# Sidebar RBA logo – do not regress
+
+The RBA logo in the top-left of the dark blue sidebar must stay fully visible and not cut off or overflowing.
+
+## Required CSS (in `core/static/core/css/base.css`)
+
+- **`.sidebar`**: Keep `overflow: hidden`, `padding-top: max(0.75rem, env(safe-area-inset-top, 0))`, and `padding-left: env(safe-area-inset-left, 0)`. Do not remove these or the logo can be clipped on the left/top.
+- **`.sidebar-brand`**: Keep `min-width: 0`, `overflow: hidden`, and `flex-shrink: 0`.
+- **`.sidebar-brand span`**: Keep `min-width: 0`.
+- **`.sidebar-brand-logo`**: Keep fixed size (width/height/max 32px), `min-width: 0`, `object-fit: contain`, `object-position: center`, `flex-shrink: 0`, `display: block`.
+
+Do not remove or relax these rules. After changing base CSS, run `python manage.py collectstatic` and reload the web app (e.g. on PythonAnywhere) so updated CSS is served.
