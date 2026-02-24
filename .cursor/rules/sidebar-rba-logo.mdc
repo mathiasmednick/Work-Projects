@@ -10,18 +10,13 @@ The RBA logo in the top-left of the dark blue sidebar must stay fully visible an
 
 ## Root cause of past issues
 
-The base template (`templates/base.html`) uses inline `style=""` attributes on the logo `<img>` tag and other sidebar elements. Pages that set a Content-Security-Policy with `style-src 'self'` (without `'unsafe-inline'`) will **strip all inline styles**, causing the logo to render at its natural (large) image size.
-
-**Any CSP that covers pages using `base.html` MUST include `'unsafe-inline'` in `style-src`:**
-```
-style-src 'self' 'unsafe-inline';
-```
+The logo must **not** rely on inline styles. Browsers like Brave (and strict CSPs) can strip or ignore inline `style=""` attributes, causing the logo to render at full image size. All logo sizing is in the stylesheet only (class `.sidebar-brand-logo` with a specific selector and `!important` so it wins in all browsers).
 
 ## Required CSS (in `core/static/core/css/base.css`)
 
 - **`.sidebar`**: Keep `overflow: hidden`, `padding-top: max(0.75rem, env(safe-area-inset-top, 0))`, and `padding-left: env(safe-area-inset-left, 0)`.
 - **`.sidebar-brand`**: Keep `min-width: 0`, `overflow: hidden`, and `flex-shrink: 0`.
 - **`.sidebar-brand span`**: Keep `min-width: 0`.
-- **`.sidebar-brand-logo`**: Keep fixed size (width/height/max 32px), `min-width: 0`, `object-fit: contain`, `object-position: center`, `flex-shrink: 0`, `display: block`.
+- **`.sidebar .sidebar-brand .sidebar-brand-logo`**: Keep fixed size (width/height/min/max 32px) with `!important`, `object-fit: contain`, `object-position: center`, `flex-shrink: 0`, `display: block`. Logo `<img>` in base.html has no inline style—stylesheet only for Brave and all browsers.
 
 Do not remove or relax these rules. After changing base CSS, run `python manage.py collectstatic` and reload the web app so updated CSS is served.

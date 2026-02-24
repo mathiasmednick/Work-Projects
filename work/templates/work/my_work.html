@@ -9,9 +9,6 @@
     <p class="page-subtitle">Manage your active tasks and schedule priorities.</p>
   </div>
   <div class="page-header-actions">
-    {% if is_manager and scheduler_user %}
-    <a href="{% if filter_scheduler_tasks %}?{% else %}?scheduler_tasks=1{% endif %}" class="btn btn-secondary {% if filter_scheduler_tasks %}active{% endif %}">View scheduler's tasks</a>
-    {% endif %}
     <a href="{% url 'work_item_create' %}" class="btn btn-primary">+ New Task</a>
   </div>
 </div>
@@ -20,10 +17,10 @@
 {% block content %}
 <meta name="csrf-token" content="{{ csrf_token }}">
 <div class="tabs">
-  <a href="?overdue=1{% if filter_scheduler_tasks %}&scheduler_tasks=1{% endif %}" class="{% if filter_overdue %}active{% endif %}">Overdue <span class="badge badge-status-overdue">{{ overdue_count }}</span></a>
-  <a href="?due_soon=1{% if filter_scheduler_tasks %}&scheduler_tasks=1{% endif %}" class="{% if filter_due_soon %}active{% endif %}">Due Soon <span class="badge badge-status-in-progress">{{ due_soon_count }}</span></a>
-  <a href="?status=in_progress{% if filter_scheduler_tasks %}&scheduler_tasks=1{% endif %}" class="{% if filter_status == 'in_progress' %}active{% endif %}">In Progress <span class="badge badge-status-open">{{ in_progress_count }}</span></a>
-  <a href="?status=done{% if filter_scheduler_tasks %}&scheduler_tasks=1{% endif %}" class="{% if filter_status == 'done' %}active{% endif %}">Completed <span class="badge badge-status-done">{{ done_count }}</span></a>
+  <a href="?overdue=1" class="{% if filter_overdue %}active{% endif %}">Overdue <span class="badge badge-status-overdue">{{ overdue_count }}</span></a>
+  <a href="?due_soon=1" class="{% if filter_due_soon %}active{% endif %}">Due Soon <span class="badge badge-status-in-progress">{{ due_soon_count }}</span></a>
+  <a href="?status=in_progress" class="{% if filter_status == 'in_progress' %}active{% endif %}">In Progress <span class="badge badge-status-open">{{ in_progress_count }}</span></a>
+  <a href="?status=done" class="{% if filter_status == 'done' %}active{% endif %}">Completed <span class="badge badge-status-done">{{ done_count }}</span></a>
 </div>
 
 <div class="chatbox card" style="margin-bottom: 1rem; max-width: 420px;">
@@ -58,7 +55,6 @@
     {% if filter_overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
     {% if filter_due_soon %}<input type="hidden" name="due_soon" value="1">{% endif %}
     {% if filter_status %}<input type="hidden" name="status" value="{{ filter_status }}">{% endif %}
-    {% if filter_scheduler_tasks %}<input type="hidden" name="scheduler_tasks" value="1">{% endif %}
     <input type="search" name="q" class="form-control search-input" placeholder="Task or project..." value="{{ filter_q }}" style="min-width: 180px;">
     <select name="project" class="form-control" style="width: auto;">
       <option value="">All Projects</option>

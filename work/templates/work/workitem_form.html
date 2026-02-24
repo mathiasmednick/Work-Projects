@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" />
 <div class="card">
   <p style="margin: 0 0 1rem 0; color: var(--text-muted); font-size: 0.9375rem;"><strong>Required:</strong> Title, Task type. <strong>Optional:</strong> Project, Due date, Task type (other), Meeting time, Assigned to, and all other fields.</p>
   <form method="post">
@@ -28,4 +29,16 @@
   </ul>
   {% endif %}
 </div>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+(function() {
+  var el = document.getElementById('id_project');
+  if (!el) return;
+  new TomSelect(el, {
+    create: false,
+    placeholder: 'Search projects...',
+    allowEmptyOption: true
+  });
+})();
+</script>
 {% endblock %}

@@ -114,17 +114,18 @@ a:hover {
   color: white;
 }
 
-/* RBA logo: fixed size + containment. Do not remove or logo can be cut off / overflow. */
-.sidebar-brand-logo {
-  width: 32px;
-  height: 32px;
-  max-width: 32px;
-  max-height: 32px;
-  min-width: 0;
-  object-fit: contain;
-  object-position: center;
-  flex-shrink: 0;
-  display: block;
+/* RBA logo: fixed size + containment. Stylesheet-only (no inline) so all browsers (incl. Brave) render same. Do not remove. */
+.sidebar .sidebar-brand .sidebar-brand-logo {
+  width: 32px !important;
+  height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  flex-shrink: 0 !important;
+  display: block !important;
 }
 
 .sidebar-nav {
