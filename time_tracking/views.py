@@ -258,7 +258,7 @@ class TimeEntryCSVExportView(SchedulerOrManagerMixin, View):
         w = csv.writer(buf)
         w.writerow([
             'date', 'user', 'project_number', 'project_name', 'project_manager',
-            'task_id', 'task_name', 'task_type', 'hours', 'notes',
+            'task_id', 'task_name', 'task_type', 'hours', 'is_overtime', 'notes',
         ])
         for e in entries:
             pm = e.project.project_manager if e.project else None
@@ -276,6 +276,7 @@ class TimeEntryCSVExportView(SchedulerOrManagerMixin, View):
                 task_name,
                 task_type,
                 e.hours,
+                'Yes' if e.is_overtime else '',
                 (e.description or ''),
             ])
 

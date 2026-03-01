@@ -21,6 +21,7 @@
   <a href="?due_soon=1" class="{% if filter_due_soon %}active{% endif %}">Due Soon <span class="badge badge-status-in-progress">{{ due_soon_count }}</span></a>
   <a href="?status=in_progress" class="{% if filter_status == 'in_progress' %}active{% endif %}">In Progress <span class="badge badge-status-open">{{ in_progress_count }}</span></a>
   <a href="?status=done" class="{% if filter_status == 'done' %}active{% endif %}">Completed <span class="badge badge-status-done">{{ done_count }}</span></a>
+  <a href="?status=all" class="{% if filter_all %}active{% endif %}">All <span class="badge badge-status-open">{{ all_count }}</span></a>
 </div>
 
 <div class="chatbox card" style="margin-bottom: 1rem; max-width: 420px;">
@@ -103,12 +104,9 @@
   <thead>
     <tr>
       <th><input type="checkbox" disabled></th>
-      <th>TASK TITLE</th>
-      <th>PROJECT</th>
-      <th>TASK TYPE</th>
-      <th>DUE DATE</th>
-      <th>PRIORITY</th>
-      <th>STATUS</th>
+      {% for link in sort_links %}
+      <th><a href="{{ link.url }}" class="sort-header{% if link.is_active %} sort-active{% endif %}">{{ link.label }}{% if link.is_active %} {% if link.order == 'asc' %}&uarr;{% else %}&darr;{% endif %}{% endif %}</a></th>
+      {% endfor %}
       <th></th>
     </tr>
   </thead>
@@ -152,6 +150,9 @@
 {% endif %}
 
 <style>
+.data-table thead th a.sort-header { color: inherit; text-decoration: none; }
+.data-table thead th a.sort-header:hover { text-decoration: underline; }
+.data-table thead th a.sort-active { font-weight: 600; }
 .chatbox .chatbox-input-row { display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; }
 .chatbox .chatbox-textarea { flex: 1; min-width: 0; padding: 0.5rem 0.75rem; font-size: 0.9375rem; font-family: inherit; border: 2px solid #2d3748; border-radius: 8px; background: #fff; resize: vertical; box-sizing: border-box; }
 .chatbox .chatbox-textarea:focus { outline: none; border-color: var(--primary, #0d6efd); }

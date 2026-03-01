@@ -18,6 +18,8 @@ DELETED_RETENTION_DAYS = 30
 
 
 SORT_FIELDS = {
+    'title': 'title',
+    'priority': 'priority',
     'project_number': 'project__project_number',
     'project_name': 'project__name',
     'pm': 'project__project_manager__username',
@@ -69,8 +71,14 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
                 due_date__lte=end,
                 status__in=(WorkItem.STATUS_OPEN, WorkItem.STATUS_IN_PROGRESS),
             )
-        if GET.get('status'):
-            qs = qs.filter(status=GET.get('status'))
+        status_param = GET.get('status')
+        if status_param == 'all':
+            pass  # include all statuses
+        elif status_param:
+            qs = qs.filter(status=status_param)
+        else:
+            # Default: hide completed tasks when no tab filter is active
+            qs = qs.exclude(status=WorkItem.STATUS_DONE)
         if GET.get('meeting_today') == '1':
             qs = qs.filter(meeting_at__date=today)
 
@@ -137,6 +145,7 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
         ctx['filter_due_soon'] = GET.get('due_soon') == '1'
         ctx['filter_meeting_today'] = GET.get('meeting_today') == '1'
         ctx['filter_status'] = GET.get('status', '')
+        ctx['filter_all'] = GET.get('status') == 'all'
         ctx['is_manager'] = getattr(getattr(self.request.user, 'profile', None), 'role', None) == 'manager'
         today = date.today()
         end_soon = today + timedelta(days=7)
@@ -150,6 +159,7 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
         ctx['meeting_today_count'] = base.filter(meeting_at__date=today).count()
         ctx['in_progress_count'] = base.filter(status=WorkItem.STATUS_IN_PROGRESS).count()
         ctx['done_count'] = base.filter(status=WorkItem.STATUS_DONE).count()
+        ctx['all_count'] = base.count()
         ctx['today'] = today
         # Filter options for template
         ctx['filter_project'] = GET.get('project', '')
@@ -163,6 +173,37 @@ class MyWorkListView(SchedulerOrManagerMixin, ListView):
         ctx['filter_q'] = GET.get('q', '')
         ctx['sort'] = GET.get('sort', 'due_date')
         ctx['order'] = GET.get('order', 'desc')
+        # Clickable sort header links: preserve all GET params, set sort and order (toggle when same column)
+        sort = ctx['sort']
+        order = ctx['order']
+        sort_columns = [
+            ('title', 'TASK TITLE'),
+            ('project_number', 'PROJECT'),
+            ('work_type', 'TASK TYPE'),
+            ('due_date', 'DUE DATE'),
+            ('priority', 'PRIORITY'),
+            ('status', 'STATUS'),
+        ]
+        sort_links = []
+        for key, label in sort_columns:
+            q = GET.copy()
+            if 'page' in q:
+                q.pop('page')
+            is_active = (key == sort)
+            if is_active:
+                next_order = 'asc' if order == 'desc' else 'desc'
+                q['sort'] = key
+                q['order'] = next_order
+            else:
+                q['sort'] = key
+                q['order'] = 'asc'
+            sort_links.append({
+                'label': label,
+                'url': '?' + q.urlencode(),
+                'is_active': is_active,
+                'order': order if is_active else None,
+            })
+        ctx['sort_links'] = sort_links
         ctx['projects'] = Project.objects.all().order_by('project_number')
         ctx['project_managers'] = User.objects.filter(managed_projects__isnull=False).distinct().order_by('username')
         ctx['assignees'] = User.objects.filter(username__in=['Mathias', 'scheduler1']).order_by('username')
@@ -233,12 +274,27 @@ class WorkItemUpdateView(SchedulerOrManagerMixin, UpdateView):
     def get_queryset(self):
         return _work_item_queryset(self.request)
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        self._original_status = obj.status
+        return obj
+
     def get_success_url(self):
         return reverse_lazy('work_item_detail', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
-        messages.success(self.request, 'Task updated.')
+        new_status = form.cleaned_data.get('status')
+        was_done = self._original_status == WorkItem.STATUS_DONE
+        if was_done and new_status != WorkItem.STATUS_DONE:
+            deleted = self.object.time_entries.count()
+            self.object.time_entries.all().delete()
+            if deleted:
+                messages.success(self.request, 'Task re-opened. Associated time entry removed.')
+            else:
+                messages.success(self.request, 'Task updated.')
+        else:
+            messages.success(self.request, 'Task updated.')
         response = super().form_valid(form)
         log_action(
             self.request.user,
@@ -247,7 +303,7 @@ class WorkItemUpdateView(SchedulerOrManagerMixin, UpdateView):
             self.object.title,
             AuditLog.ACTION_UPDATE,
         )
-        if form.cleaned_data.get('status') == WorkItem.STATUS_DONE:
+        if new_status == WorkItem.STATUS_DONE:
             return redirect('work_item_complete', pk=self.object.pk)
         return response
 
@@ -331,6 +387,7 @@ class WorkItemCompleteView(SchedulerOrManagerMixin, View):
             work_item=work_item,
             date=form.cleaned_data['date_worked'],
             hours=form.cleaned_data['hours'],
+            is_overtime=form.cleaned_data.get('is_overtime', False),
             description=form.cleaned_data.get('notes') or '',
         )
         if work_item.work_type == WorkItem.WORK_TYPE_UPDATE_REQUEST:
