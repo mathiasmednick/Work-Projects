@@ -26,6 +26,11 @@ class CompleteTaskTimeForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
     )
+    is_overtime = forms.BooleanField(
+        label='Overtime?',
+        required=False,
+        initial=False,
+    )
 
 
 class WorkItemForm(forms.ModelForm):

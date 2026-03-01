@@ -442,8 +442,14 @@
     if (t.taskType) label = label + ' (' + t.taskType + ')';
     var plannedStart = formatShortDate(t.flags.plannedStart) || t.start;
     var plannedFinish = formatShortDate(t.flags.plannedFinish) || t.finish;
-    var actualStr = (t.actualStart || t.actualFinish) ? ((t.actualStart || 'None') + '-' + (t.actualFinish || 'None')) : 'None-None';
-    var part = (index != null ? index + '. ' : '') + label + ': Planned ' + plannedStart + '-' + plannedFinish + '; Actual ' + actualStr + '. ' + generateQuestion(t, statusDateStr);
+    var isOneDayTask = t.flags.plannedStart && t.flags.plannedFinish &&
+      dateToYMD(t.flags.plannedStart) === dateToYMD(t.flags.plannedFinish);
+    var part;
+    if (isOneDayTask) {
+      part = (index != null ? index + '. ' : '') + label + ': ' + (plannedStart || plannedFinish) + ' completed?';
+    } else {
+      part = (index != null ? index + '. ' : '') + label + ': Planned ' + plannedStart + '-' + plannedFinish + '. ' + generateQuestion(t, statusDateStr);
+    }
     if (t.completedBy) part += ' (Completed by: ' + t.completedBy + ')';
     lines.push(part);
   }

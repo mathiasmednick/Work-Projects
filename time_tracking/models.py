@@ -36,6 +36,7 @@ class TimeEntry(models.Model):
     work_code = models.CharField(max_length=50, choices=WORK_CODE_CHOICES, blank=True)
     date = models.DateField()
     hours = models.DecimalField(max_digits=6, decimal_places=2)
+    is_overtime = models.BooleanField(default=False)
     description = models.TextField(blank=True)
 
     class Meta:
